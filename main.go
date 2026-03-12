@@ -253,6 +253,7 @@ func InitResources() error {
 
 	// Initialize model settings
 	ratio_setting.InitRatioSettings()
+	ratio_setting.InitResolutionRatioSettings()
 
 	service.InitHttpClient()
 

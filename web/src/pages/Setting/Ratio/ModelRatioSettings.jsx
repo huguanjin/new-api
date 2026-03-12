@@ -48,6 +48,7 @@ export default function ModelRatioSettings(props) {
     ImageRatio: '',
     AudioRatio: '',
     AudioCompletionRatio: '',
+    ResolutionRatio: '',
     ExposeRatioEnabled: false,
   });
   const refForm = useRef();
@@ -315,6 +316,32 @@ export default function ModelRatioSettings(props) {
               ]}
               onChange={(value) =>
                 setInputs({ ...inputs, AudioCompletionRatio: value })
+              }
+            />
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col xs={24} sm={16}>
+            <Form.TextArea
+              label={t('分辨率倍率（视频模型分辨率定价）')}
+              extraText={t(
+                '嵌套JSON，键为模型名称，值为 {分辨率: 倍率}，例如：{"TC-vidu-q2": {"720p": 1, "1080p": 2}}',
+              )}
+              placeholder={t(
+                '为一个 JSON 文本，键为模型名称，值为分辨率倍率映射，例如：{"TC-vidu-q2": {"720p": 1, "1080p": 2}}',
+              )}
+              field={'ResolutionRatio'}
+              autosize={{ minRows: 6, maxRows: 12 }}
+              trigger='blur'
+              stopValidateWithError
+              rules={[
+                {
+                  validator: (rule, value) => verifyJSON(value),
+                  message: '不是合法的 JSON 字符串',
+                },
+              ]}
+              onChange={(value) =>
+                setInputs({ ...inputs, ResolutionRatio: value })
               }
             />
           </Col>
