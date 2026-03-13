@@ -1,8 +1,8 @@
-# HUBAGI Vidu 视频生成 API 文档（客户端版）
+# AIFAST Vidu 视频生成 API 文档（客户端版）
 
 ## 基础信息
 
-- **Base URL**: `https://<your-gateway-domain>`（你的 new-api 网关地址）
+- **Base URL**: `https://aifast.site`（你的 new-api 网关地址）
 - **认证方式**: `Authorization: Bearer {your_api_key}`（new-api 令牌）
 - **Content-Type**: `application/json`
 
