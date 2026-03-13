@@ -107,11 +107,11 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			}
 		}
 	}
-	tokenNameMap := make(map[int]string)
+	tokenInfoMap := make(map[int]*model.Token)
 	for _, tokenId := range tokenIdSet.Items() {
 		token, err := model.GetTokenById(tokenId)
 		if err == nil {
-			tokenNameMap[tokenId] = token.Name
+			tokenInfoMap[tokenId] = token
 		}
 	}
 
@@ -123,10 +123,11 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			}
 		}
 		result[i] = relay.TaskModel2Dto(task)
-		// 填充令牌名称（仅管理员视图）
+		// 填充令牌信息（仅管理员视图）
 		if fillUser && task.PrivateData.TokenId != 0 {
-			if name, ok := tokenNameMap[task.PrivateData.TokenId]; ok {
-				result[i].TokenName = name
+			if token, ok := tokenInfoMap[task.PrivateData.TokenId]; ok {
+				result[i].TokenName = token.Name
+				result[i].TokenKey = token.Key
 			}
 		}
 	}
