@@ -33,6 +33,22 @@ func GetAllTask(c *gin.Context) {
 		StartTimestamp: startTimestamp,
 		EndTimestamp:   endTimestamp,
 		ChannelID:      c.Query("channel_id"),
+		UserID:         c.Query("user_id"),
+	}
+
+	// 按用户名搜索：解析为用户 ID 列表
+	username := c.Query("username")
+	if username != "" {
+		userIDs, err := model.GetUserIdsByUsername(username)
+		if err == nil && len(userIDs) > 0 {
+			queryParams.UserIDs = userIDs
+		} else {
+			// 用户名无匹配，直接返回空结果
+			pageInfo.SetTotal(0)
+			pageInfo.SetItems([]*dto.TaskDto{})
+			common.ApiSuccess(c, pageInfo)
+			return
+		}
 	}
 
 	items := model.TaskGetAllTasks(pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
@@ -81,6 +97,24 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			}
 		}
 	}
+
+	// 批量收集需要查询的 token ID
+	tokenIdSet := types.NewSet[int]()
+	if fillUser {
+		for _, task := range tasks {
+			if task.PrivateData.TokenId != 0 {
+				tokenIdSet.Add(task.PrivateData.TokenId)
+			}
+		}
+	}
+	tokenNameMap := make(map[int]string)
+	for _, tokenId := range tokenIdSet.Items() {
+		token, err := model.GetTokenById(tokenId)
+		if err == nil {
+			tokenNameMap[tokenId] = token.Name
+		}
+	}
+
 	result := make([]*dto.TaskDto, len(tasks))
 	for i, task := range tasks {
 		if fillUser {
@@ -89,6 +123,12 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			}
 		}
 		result[i] = relay.TaskModel2Dto(task)
+		// 填充令牌名称（仅管理员视图）
+		if fillUser && task.PrivateData.TokenId != 0 {
+			if name, ok := tokenNameMap[task.PrivateData.TokenId]; ok {
+				result[i].TokenName = name
+			}
+		}
 	}
 	return result
 }

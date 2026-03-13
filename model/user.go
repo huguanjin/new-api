@@ -1015,6 +1015,13 @@ func GetUsernameById(id int, fromDB bool) (username string, err error) {
 	return username, nil
 }
 
+// GetUserIdsByUsername 根据用户名模糊搜索，返回匹配的用户 ID 列表
+func GetUserIdsByUsername(username string) ([]int, error) {
+	var userIDs []int
+	err := DB.Model(&User{}).Where("username LIKE ?", "%"+username+"%").Pluck("id", &userIDs).Error
+	return userIDs, err
+}
+
 func IsLinuxDOIdAlreadyTaken(linuxDOId string) bool {
 	var user User
 	err := DB.Unscoped().Where("linux_do_id = ?", linuxDOId).First(&user).Error
