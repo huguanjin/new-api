@@ -127,7 +127,7 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 		if fillUser && task.PrivateData.TokenId != 0 {
 			if token, ok := tokenInfoMap[task.PrivateData.TokenId]; ok {
 				result[i].TokenName = token.Name
-				result[i].TokenKey = token.Key
+				result[i].TokenKey = "sk-" + token.Key
 			}
 		}
 	}
