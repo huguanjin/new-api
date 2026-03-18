@@ -482,6 +482,7 @@ const SubscriptionPlansCard = ({
               {plans.map((p, index) => {
                 const plan = p?.plan;
                 const totalAmount = Number(plan?.total_amount || 0);
+                const rpmLimit = Number(plan?.rpm_limit || 0);
                 const { symbol, rate } = getCurrencyConfig();
                 const price = Number(plan?.price_amount || 0);
                 const convertedPrice = price * rate;
@@ -502,6 +503,10 @@ const SubscriptionPlansCard = ({
                   formatSubscriptionResetPeriod(plan, t) === t('不重置')
                     ? null
                     : `${t('额度重置')}: ${formatSubscriptionResetPeriod(plan, t)}`;
+                const rpmLabel =
+                  rpmLimit > 0
+                    ? `${t('RPM上限')}: ${rpmLimit}`
+                    : `${t('RPM上限')}: ${t('不限')}`;
                 const planBenefits = [
                   {
                     label: `${t('有效期')}: ${formatSubscriptionDuration(plan, t)}`,
@@ -513,6 +518,7 @@ const SubscriptionPlansCard = ({
                         tooltip: `${t('原生额度')}：${totalAmount}`,
                       }
                     : { label: totalLabel },
+                  { label: rpmLabel, tooltip: t('每分钟最大请求数') },
                   limitLabel ? { label: limitLabel } : null,
                   upgradeLabel ? { label: upgradeLabel } : null,
                 ].filter(Boolean);
