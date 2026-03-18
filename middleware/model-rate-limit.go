@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/common/limiter"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 
 	"github.com/gin-gonic/gin"
@@ -176,6 +177,26 @@ func ModelRequestRateLimit() func(c *gin.Context) {
 		duration := int64(setting.ModelRequestRateLimitDurationMinutes * 60)
 		totalMaxCount := setting.ModelRequestRateLimitCount
 		successMaxCount := setting.ModelRequestRateLimitSuccessCount
+
+		// 获取用户ID
+		userId := c.GetInt("id")
+
+		// 优先检查用户订阅的 RPM 限制
+		if userId > 0 {
+			subRpmLimit := model.GetUserActiveSubscriptionRpmLimit(userId)
+			if subRpmLimit > 0 {
+				// 使用订阅的 RPM 限制，同时应用于总请求数和成功请求数
+				totalMaxCount = subRpmLimit
+				successMaxCount = subRpmLimit
+				// 使用订阅限制时，直接执行限流检查，跳过分组配置
+				if common.RedisEnabled {
+					redisRateLimitHandler(duration, totalMaxCount, successMaxCount)(c)
+				} else {
+					memoryRateLimitHandler(duration, totalMaxCount, successMaxCount)(c)
+				}
+				return
+			}
+		}
 
 		// 获取分组
 		group := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)

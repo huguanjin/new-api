@@ -97,6 +97,7 @@ const AddEditSubscriptionModal = ({
     upgrade_group: '',
     stripe_price_id: '',
     creem_product_id: '',
+    rpm_limit: 0,
   });
 
   const buildFormValues = () => {
@@ -123,6 +124,7 @@ const AddEditSubscriptionModal = ({
       upgrade_group: p.upgrade_group || '',
       stripe_price_id: p.stripe_price_id || '',
       creem_product_id: p.creem_product_id || '',
+      rpm_limit: Number(p.rpm_limit || 0),
     };
   };
 
@@ -164,6 +166,7 @@ const AddEditSubscriptionModal = ({
           max_purchase_per_user: Number(values.max_purchase_per_user || 0),
           total_amount: displayAmountToQuota(values.total_amount),
           upgrade_group: values.upgrade_group || '',
+          rpm_limit: Number(values.rpm_limit || 0),
         },
       };
       if (editingPlan?.plan?.id) {
@@ -367,6 +370,17 @@ const AddEditSubscriptionModal = ({
                         min={0}
                         precision={0}
                         extraText={t('0 表示不限')}
+                        style={{ width: '100%' }}
+                      />
+                    </Col>
+
+                    <Col span={12}>
+                      <Form.InputNumber
+                        field='rpm_limit'
+                        label={t('RPM限制')}
+                        min={0}
+                        precision={0}
+                        extraText={t('每分钟请求数限制，0 表示不限')}
                         style={{ width: '100%' }}
                       />
                     </Col>

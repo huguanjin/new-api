@@ -175,6 +175,9 @@ type SubscriptionPlan struct {
 	QuotaResetPeriod        string `json:"quota_reset_period" gorm:"type:varchar(16);default:'never'"`
 	QuotaResetCustomSeconds int64  `json:"quota_reset_custom_seconds" gorm:"type:bigint;default:0"`
 
+	// RPM (requests per minute) limit for this plan (0 = no limit, use default/group config)
+	RpmLimit int `json:"rpm_limit" gorm:"type:int;not null;default:0"`
+
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
 }
@@ -249,6 +252,9 @@ type UserSubscription struct {
 
 	UpgradeGroup  string `json:"upgrade_group" gorm:"type:varchar(64);default:''"`
 	PrevUserGroup string `json:"prev_user_group" gorm:"type:varchar(64);default:''"`
+
+	// RPM limit snapshot from plan at purchase time (0 = no limit)
+	RpmLimit int `json:"rpm_limit" gorm:"type:int;not null;default:0"`
 
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
@@ -495,6 +501,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		NextResetTime: nextReset,
 		UpgradeGroup:  upgradeGroup,
 		PrevUserGroup: prevGroup,
+		RpmLimit:      plan.RpmLimit,
 		CreatedAt:     common.GetTimestamp(),
 		UpdatedAt:     common.GetTimestamp(),
 	}
@@ -1189,4 +1196,27 @@ func PostConsumeUserSubscriptionDelta(userSubscriptionId int, delta int64) error
 		sub.AmountUsed = newUsed
 		return tx.Save(&sub).Error
 	})
+}
+
+// GetUserActiveSubscriptionRpmLimit returns the sum of RPM limits from all active subscriptions for a user.
+// This allows users with multiple subscriptions to have their RPM limits stacked.
+// Returns 0 if no active subscription with RPM limit, or user has no active subscription.
+func GetUserActiveSubscriptionRpmLimit(userId int) int {
+	if userId <= 0 {
+		return 0
+	}
+	now := common.GetTimestamp()
+	var subs []UserSubscription
+	if err := DB.Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Select("rpm_limit").
+		Find(&subs).Error; err != nil {
+		return 0
+	}
+	totalRpm := 0
+	for _, sub := range subs {
+		if sub.RpmLimit > 0 {
+			totalRpm += sub.RpmLimit
+		}
+	}
+	return totalRpm
 }
