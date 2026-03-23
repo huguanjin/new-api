@@ -17,13 +17,48 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Tabs, TabPane } from '@douyinfe/semi-ui';
+import { CalendarClock, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import SubscriptionsPage from '../../components/table/subscriptions';
+import UserSubscriptionsTab from '../../components/table/subscriptions/UserSubscriptionsTab';
 
 const Subscription = () => {
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState('plans');
+
   return (
     <div className='mt-[60px] px-2'>
-      <SubscriptionsPage />
+      <Tabs
+        type='line'
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        className='mb-2'
+      >
+        <TabPane
+          itemKey='plans'
+          tab={
+            <div className='flex items-center gap-2'>
+              <CalendarClock size={16} />
+              {t('套餐管理')}
+            </div>
+          }
+        >
+          <SubscriptionsPage />
+        </TabPane>
+        <TabPane
+          itemKey='user_subs'
+          tab={
+            <div className='flex items-center gap-2'>
+              <Users size={16} />
+              {t('用户订阅')}
+            </div>
+          }
+        >
+          <UserSubscriptionsTab />
+        </TabPane>
+      </Tabs>
     </div>
   );
 };

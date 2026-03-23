@@ -311,6 +311,26 @@ func AdminBindSubscription(c *gin.Context) {
 
 // ---- Admin: user subscription management ----
 
+// AdminListAllUserSubscriptions lists all user subscriptions with pagination and filtering.
+func AdminListAllUserSubscriptions(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("p", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	status := c.DefaultQuery("status", "all")
+	keyword := c.DefaultQuery("keyword", "")
+
+	items, total, err := model.AdminListAllUserSubscriptions(page, pageSize, status, keyword)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, map[string]any{
+		"items":     items,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
 func AdminListUserSubscriptions(c *gin.Context) {
 	userId, _ := strconv.Atoi(c.Param("id"))
 	if userId <= 0 {

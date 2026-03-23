@@ -718,6 +718,119 @@ func buildSubscriptionSummaries(subs []UserSubscription) []SubscriptionSummary {
 	return result
 }
 
+// AdminUserSubscriptionItem represents a user subscription with username for admin display.
+type AdminUserSubscriptionItem struct {
+	UserSubscription
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+	PlanTitle   string `json:"plan_title"`
+}
+
+// AdminListAllUserSubscriptions returns all user subscriptions with pagination and filtering.
+func AdminListAllUserSubscriptions(page, pageSize int, status string, keyword string) ([]AdminUserSubscriptionItem, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	query := DB.Model(&UserSubscription{})
+
+	// Filter by status
+	if status != "" && status != "all" {
+		now := common.GetTimestamp()
+		switch status {
+		case "active":
+			query = query.Where("user_subscriptions.status = ? AND user_subscriptions.end_time > ?", "active", now)
+		case "expired":
+			query = query.Where("user_subscriptions.status = ? AND user_subscriptions.end_time <= ?", "active", now)
+		case "cancelled":
+			query = query.Where("user_subscriptions.status = ?", "cancelled")
+		default:
+			query = query.Where("user_subscriptions.status = ?", status)
+		}
+	}
+
+	// Search by keyword (user_id or username)
+	if keyword != "" {
+		if uid, err := strconv.Atoi(keyword); err == nil && uid > 0 {
+			query = query.Where("user_subscriptions.user_id = ?", uid)
+		} else {
+			// Join users table and search by username
+			query = query.Joins("LEFT JOIN users ON users.id = user_subscriptions.user_id").
+				Where("users.username LIKE ? OR users.display_name LIKE ?",
+					"%"+keyword+"%", "%"+keyword+"%")
+		}
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var subs []UserSubscription
+	offset := (page - 1) * pageSize
+
+	// Need to select from user_subscriptions explicitly if joined
+	findQuery := query.Select("user_subscriptions.*").
+		Order("user_subscriptions.created_at desc, user_subscriptions.id desc").
+		Offset(offset).Limit(pageSize)
+	if err := findQuery.Find(&subs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Collect user IDs and plan IDs for batch lookup
+	userIds := make([]int, 0, len(subs))
+	planIds := make([]int, 0, len(subs))
+	for _, s := range subs {
+		userIds = append(userIds, s.UserId)
+		planIds = append(planIds, s.PlanId)
+	}
+
+	// Batch load usernames
+	userMap := make(map[int][2]string) // id -> [username, display_name]
+	if len(userIds) > 0 {
+		var users []struct {
+			Id          int    `gorm:"column:id"`
+			Username    string `gorm:"column:username"`
+			DisplayName string `gorm:"column:display_name"`
+		}
+		DB.Model(&User{}).Select("id, username, display_name").Where("id IN ?", userIds).Find(&users)
+		for _, u := range users {
+			userMap[u.Id] = [2]string{u.Username, u.DisplayName}
+		}
+	}
+
+	// Batch load plan titles
+	planMap := make(map[int]string)
+	if len(planIds) > 0 {
+		var plans []struct {
+			Id    int    `gorm:"column:id"`
+			Title string `gorm:"column:title"`
+		}
+		DB.Model(&SubscriptionPlan{}).Select("id, title").Where("id IN ?", planIds).Find(&plans)
+		for _, p := range plans {
+			planMap[p.Id] = p.Title
+		}
+	}
+
+	items := make([]AdminUserSubscriptionItem, 0, len(subs))
+	for _, sub := range subs {
+		item := AdminUserSubscriptionItem{
+			UserSubscription: sub,
+			PlanTitle:        planMap[sub.PlanId],
+		}
+		if info, ok := userMap[sub.UserId]; ok {
+			item.Username = info[0]
+			item.DisplayName = info[1]
+		}
+		items = append(items, item)
+	}
+
+	return items, total, nil
+}
+
 // AdminInvalidateUserSubscription marks a user subscription as cancelled and ends it immediately.
 func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 	if userSubscriptionId <= 0 {
