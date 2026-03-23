@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,11 @@ func formatUserLogs(logs []*Log, startIdx int) {
 			// Remove admin-only debug fields.
 			delete(otherMap, "admin_info")
 			delete(otherMap, "reject_reason")
+			// 若管理员开启了隐藏上游模型名开关，则从用户视图中移除相关字段
+			if operation_setting.GetLogSetting().HideUpstreamModel {
+				delete(otherMap, "is_model_mapped")
+				delete(otherMap, "upstream_model_name")
+			}
 		}
 		logs[i].Other = common.MapToJsonStr(otherMap)
 		logs[i].Id = startIdx + i + 1

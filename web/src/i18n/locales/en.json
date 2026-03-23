@@ -2435,6 +2435,8 @@
     "自定义错误响应": "",
     "自定义镜像": "Custom Image",
     "自用模式": "Self-use mode",
+    "隐藏上游模型名称": "Hide upstream model name",
+    "开启后用户侧日志不展示真实上游模型名": "When enabled, real upstream model names are hidden from user logs",
     "自适应列表": "Adaptive list",
     "至": "until",
     "节省": "Save",
