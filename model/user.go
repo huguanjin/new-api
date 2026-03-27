@@ -50,17 +50,19 @@ type User struct {
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
+	CreatorId        int            `json:"creator_id" gorm:"type:int;default:0;column:creator_id;index"`
 }
 
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
-		Id:       user.Id,
-		Group:    user.Group,
-		Quota:    user.Quota,
-		Status:   user.Status,
-		Username: user.Username,
-		Setting:  user.Setting,
-		Email:    user.Email,
+		Id:        user.Id,
+		Group:     user.Group,
+		Quota:     user.Quota,
+		Status:    user.Status,
+		Username:  user.Username,
+		Setting:   user.Setting,
+		Email:     user.Email,
+		CreatorId: user.CreatorId,
 	}
 	return cache
 }
@@ -932,6 +934,26 @@ func DeltaUpdateUserQuota(id int, delta int) (err error) {
 	}
 }
 
+// GetUserCreatorId returns the creator_id for the given user via cache.
+// Returns 0 if the user has no creator (i.e. not a sub-account).
+func GetUserCreatorId(userId int) (int, error) {
+	userCache, err := GetUserCache(userId)
+	if err != nil {
+		return 0, err
+	}
+	return userCache.CreatorId, nil
+}
+
+// DeltaCreatorQuota adjusts the creator's quota by delta.
+// If the user has no creator (creatorId == 0), this is a no-op.
+// delta > 0 means increase, delta < 0 means decrease.
+func DeltaCreatorQuota(creatorId int, delta int) error {
+	if creatorId <= 0 || delta == 0 {
+		return nil
+	}
+	return DeltaUpdateUserQuota(creatorId, delta)
+}
+
 //func GetRootUserEmail() (email string) {
 //	DB.Model(&User{}).Where("role = ?", common.RoleRootUser).Select("email").Find(&email)
 //	return email
@@ -1043,4 +1065,182 @@ func RootUserExists() bool {
 		return false
 	}
 	return true
+}
+
+// BatchInsertUsers inserts multiple users within a transaction.
+// Each user should have Password already hashed, and other fields prepared.
+func BatchInsertUsers(users []*User) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		for _, user := range users {
+			if err := tx.Create(user).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// CheckUsernamesExist checks which usernames from the list already exist (including soft-deleted).
+func CheckUsernamesExist(usernames []string) ([]string, error) {
+	var existing []string
+	err := DB.Unscoped().Model(&User{}).Where("username IN ?", usernames).Pluck("username", &existing).Error
+	return existing, err
+}
+
+// GetUsersByCreatorId returns paginated users created by the given creator.
+func GetUsersByCreatorId(creatorId int, pageInfo *common.PageInfo) ([]*User, int64, error) {
+	var users []*User
+	var total int64
+
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	baseQuery := tx.Model(&User{}).Where("creator_id = ?", creatorId)
+
+	err := baseQuery.Count(&total).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	err = baseQuery.Omit("password").Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&users).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+// SearchUsersByCreatorId searches users created by the given creator with a keyword filter.
+func SearchUsersByCreatorId(creatorId int, keyword string, startIdx int, num int) ([]*User, int64, error) {
+	var users []*User
+	var total int64
+
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query := tx.Model(&User{}).Where("creator_id = ?", creatorId)
+
+	likeCondition := "username LIKE ? OR display_name LIKE ?"
+	keywordInt, err := strconv.Atoi(keyword)
+	if err == nil {
+		likeCondition = "id = ? OR " + likeCondition
+		query = query.Where("("+likeCondition+")", keywordInt, "%"+keyword+"%", "%"+keyword+"%")
+	} else {
+		query = query.Where("("+likeCondition+")", "%"+keyword+"%", "%"+keyword+"%")
+	}
+
+	err = query.Count(&total).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	err = query.Omit("password").Order("id desc").Limit(num).Offset(startIdx).Find(&users).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+// GetAllCreatedUsers returns paginated users that have a creator_id > 0 (all batch-created users).
+func GetAllCreatedUsers(pageInfo *common.PageInfo) ([]*User, int64, error) {
+	var users []*User
+	var total int64
+
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	baseQuery := tx.Model(&User{}).Where("creator_id > 0")
+
+	err := baseQuery.Count(&total).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	err = baseQuery.Omit("password").Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&users).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+// SearchAllCreatedUsers searches all batch-created users (creator_id > 0) with a keyword filter.
+func SearchAllCreatedUsers(keyword string, startIdx int, num int) ([]*User, int64, error) {
+	var users []*User
+	var total int64
+
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return nil, 0, tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query := tx.Model(&User{}).Where("creator_id > 0")
+
+	likeCondition := "username LIKE ? OR display_name LIKE ?"
+	keywordInt, err := strconv.Atoi(keyword)
+	if err == nil {
+		likeCondition = "id = ? OR " + likeCondition
+		query = query.Where("("+likeCondition+")", keywordInt, "%"+keyword+"%", "%"+keyword+"%")
+	} else {
+		query = query.Where("("+likeCondition+")", "%"+keyword+"%", "%"+keyword+"%")
+	}
+
+	err = query.Count(&total).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	err = query.Omit("password").Order("id desc").Limit(num).Offset(startIdx).Find(&users).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, 0, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
 }

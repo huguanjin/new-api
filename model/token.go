@@ -460,3 +460,22 @@ func BatchDeleteTokens(ids []int, userId int) (int, error) {
 
 	return len(tokens), nil
 }
+
+// GetTokensByUserId returns all tokens for a specific user.
+func GetTokensByUserId(userId int) ([]*Token, error) {
+	var tokens []*Token
+	err := DB.Where("user_id = ?", userId).Order("id desc").Find(&tokens).Error
+	return tokens, err
+}
+
+// BatchInsertTokens inserts multiple tokens within a transaction.
+func BatchInsertTokens(tokens []*Token) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		for _, token := range tokens {
+			if err := tx.Create(token).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}

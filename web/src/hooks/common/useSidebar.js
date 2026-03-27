@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import { useState, useEffect, useMemo, useContext, useRef } from 'react';
 import { StatusContext } from '../../context/Status';
-import { API } from '../../helpers';
+import { API, isAdmin, isRoot } from '../../helpers';
 
 // 创建一个全局事件系统来同步所有useSidebar实例
 const sidebarEventTarget = new EventTarget();
@@ -52,6 +52,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     redemption: true,
     user: true,
     subscription: true,
+    batch_user: true,
     setting: true,
   },
 };
@@ -100,6 +101,18 @@ export const useSidebar = () => {
     }
     return mergeAdminConfig(null);
   }, [statusState?.status?.SidebarModulesAdmin]);
+
+  // 获取管理员角色权限配置（超级管理员对普通管理员的授权控制）
+  const adminRolePermissions = useMemo(() => {
+    if (statusState?.status?.AdminRolePermissions) {
+      try {
+        return JSON.parse(statusState.status.AdminRolePermissions);
+      } catch (error) {
+        return null;
+      }
+    }
+    return null;
+  }, [statusState?.status?.AdminRolePermissions]);
 
   // 加载用户配置的通用方法
   const loadUserConfig = async ({ withLoading } = {}) => {
@@ -251,13 +264,24 @@ export const useSidebar = () => {
           ? userSection[moduleKey] !== false
           : true;
 
+        // 管理员角色权限检查：普通管理员受 AdminRolePermissions 限制，超级管理员不受限
+        let roleAllowed = true;
+        if (
+          sectionKey === 'admin' &&
+          isAdmin() &&
+          !isRoot() &&
+          adminRolePermissions
+        ) {
+          roleAllowed = adminRolePermissions[moduleKey] !== false;
+        }
+
         result[sectionKey][moduleKey] =
-          adminAllowed && userAllowed && sectionEnabled;
+          adminAllowed && userAllowed && roleAllowed && sectionEnabled;
       });
     });
 
     return result;
-  }, [adminConfig, userConfig]);
+  }, [adminConfig, userConfig, adminRolePermissions]);
 
   // 检查特定功能是否应该显示
   const isModuleVisible = (sectionKey, moduleKey = null) => {
@@ -291,6 +315,7 @@ export const useSidebar = () => {
   return {
     loading,
     adminConfig,
+    adminRolePermissions,
     userConfig,
     finalConfig,
     isModuleVisible,

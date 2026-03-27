@@ -125,6 +125,12 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.DELETE("/:id", controller.DeleteUser)
 				adminRoute.DELETE("/:id/reset_passkey", controller.AdminResetPasskey)
 
+				// Batch user creation routes
+				adminRoute.POST("/batch", controller.BatchCreateUsers)
+				adminRoute.GET("/created", controller.GetCreatedUsers)
+				adminRoute.GET("/created/search", controller.SearchCreatedUsers)
+				adminRoute.GET("/:id/tokens", controller.GetUserTokensByAdmin)
+
 				// Admin 2FA routes
 				adminRoute.GET("/2fa/stats", controller.Admin2FAStats)
 				adminRoute.DELETE("/:id/2fa", controller.AdminDisable2FA)

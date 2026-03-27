@@ -1180,3 +1180,273 @@ func UpdateUserSetting(c *gin.Context) {
 
 	common.ApiSuccessI18n(c, i18n.MsgSettingSaved, nil)
 }
+
+// --- Batch User Creation ---
+
+type BatchCreateUsersRequest struct {
+	UsernamePrefix      string `json:"username_prefix"`
+	UsernameMode        string `json:"username_mode"` // "sequential" or "random"
+	StartNumber         int    `json:"start_number"`
+	Count               int    `json:"count"`
+	Password            string `json:"password"`
+	TokenName           string `json:"token_name"`
+	TokenGroup          string `json:"token_group"`
+	TokenUnlimitedQuota bool   `json:"token_unlimited_quota"`
+	TokenQuota          int    `json:"token_quota"`
+	UserQuota           int    `json:"user_quota"`
+	UserGroup           string `json:"user_group"`
+}
+
+type BatchCreateUserResult struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	TokenKey string `json:"token_key"`
+}
+
+func BatchCreateUsers(c *gin.Context) {
+	var req BatchCreateUsersRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	// Validate prefix
+	req.UsernamePrefix = strings.TrimSpace(req.UsernamePrefix)
+	if req.UsernamePrefix == "" {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserPrefixEmpty)
+		return
+	}
+	if len(req.UsernamePrefix) > 12 {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserPrefixTooLong, map[string]any{"Max": 12})
+		return
+	}
+
+	// Validate count
+	if req.Count < 1 || req.Count > 100 {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserCountInvalid)
+		return
+	}
+
+	// Validate password
+	if len(req.Password) < 8 {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserPasswordTooShort)
+		return
+	}
+
+	// Validate mode
+	if req.UsernameMode != "sequential" && req.UsernameMode != "random" {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserModeInvalid)
+		return
+	}
+
+	// Generate usernames
+	usernames := make([]string, req.Count)
+	for i := 0; i < req.Count; i++ {
+		if req.UsernameMode == "sequential" {
+			usernames[i] = fmt.Sprintf("%s%d", req.UsernamePrefix, req.StartNumber+i)
+		} else {
+			usernames[i] = fmt.Sprintf("%s%s", req.UsernamePrefix, common.GetRandomString(6))
+		}
+		// Truncate to max length
+		if len(usernames[i]) > model.UserNameMaxLength {
+			usernames[i] = usernames[i][:model.UserNameMaxLength]
+		}
+	}
+
+	// Check for duplicates in generated names
+	nameSet := make(map[string]bool)
+	for _, name := range usernames {
+		if nameSet[name] {
+			common.ApiErrorI18n(c, i18n.MsgBatchUserNameConflict, map[string]any{"Names": name + " (duplicate in batch)"})
+			return
+		}
+		nameSet[name] = true
+	}
+
+	// Check existing usernames
+	existing, err := model.CheckUsernamesExist(usernames)
+	if err != nil {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserCreateFailed, map[string]any{"Error": err.Error()})
+		return
+	}
+	if len(existing) > 0 {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserNameConflict, map[string]any{"Names": strings.Join(existing, ", ")})
+		return
+	}
+
+	creatorId := c.GetInt("id")
+	myRole := c.GetInt("role")
+
+	// 非Root管理员：从管理员余额中扣除子账号初始额度
+	totalQuotaNeeded := req.UserQuota * req.Count
+	if totalQuotaNeeded > 0 && myRole != common.RoleRootUser {
+		adminQuota, err := model.GetUserQuota(creatorId, false)
+		if err != nil {
+			common.ApiErrorI18n(c, i18n.MsgBatchUserCreateFailed, map[string]any{"Error": err.Error()})
+			return
+		}
+		if adminQuota < totalQuotaNeeded {
+			common.ApiErrorI18n(c, i18n.MsgBatchUserQuotaInsufficient, map[string]any{
+				"Need":    logger.LogQuota(totalQuotaNeeded),
+				"Balance": logger.LogQuota(adminQuota),
+			})
+			return
+		}
+		if err := model.DecreaseUserQuota(creatorId, totalQuotaNeeded); err != nil {
+			common.ApiErrorI18n(c, i18n.MsgBatchUserCreateFailed, map[string]any{"Error": err.Error()})
+			return
+		}
+	}
+
+	// Prepare users
+	users := make([]*model.User, req.Count)
+	for i := 0; i < req.Count; i++ {
+		hashedPassword, err := common.Password2Hash(req.Password)
+		if err != nil {
+			common.ApiErrorI18n(c, i18n.MsgBatchUserCreateFailed, map[string]any{"Error": err.Error()})
+			return
+		}
+		users[i] = &model.User{
+			Username:    usernames[i],
+			Password:    hashedPassword,
+			DisplayName: usernames[i],
+			Role:        common.RoleCommonUser,
+			Status:      common.UserStatusEnabled,
+			Quota:       req.UserQuota,
+			Group:       req.UserGroup,
+			AffCode:     common.GetRandomString(4),
+			CreatorId:   creatorId,
+		}
+	}
+
+	// Batch insert users
+	if err := model.BatchInsertUsers(users); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserCreateFailed, map[string]any{"Error": err.Error()})
+		return
+	}
+
+	// Generate tokens for each user
+	results := make([]BatchCreateUserResult, req.Count)
+	tokens := make([]*model.Token, req.Count)
+	for i := 0; i < req.Count; i++ {
+		key, err := common.GenerateKey()
+		if err != nil {
+			common.ApiErrorI18n(c, i18n.MsgBatchUserTokenFailed, map[string]any{"Error": err.Error()})
+			return
+		}
+		tokenName := req.TokenName
+		if tokenName == "" {
+			tokenName = "default"
+		}
+		tokenGroup := req.TokenGroup
+		if setting.DefaultUseAutoGroup && tokenGroup == "" {
+			tokenGroup = "auto"
+		}
+		tokens[i] = &model.Token{
+			UserId:         users[i].Id,
+			Name:           tokenName,
+			Key:            key,
+			CreatedTime:    common.GetTimestamp(),
+			AccessedTime:   common.GetTimestamp(),
+			ExpiredTime:    -1,
+			RemainQuota:    req.TokenQuota,
+			UnlimitedQuota: req.TokenUnlimitedQuota,
+			Group:          tokenGroup,
+			Status:         common.TokenStatusEnabled,
+		}
+		results[i] = BatchCreateUserResult{
+			Username: usernames[i],
+			Password: req.Password,
+			TokenKey: key,
+		}
+	}
+
+	if err := model.BatchInsertTokens(tokens); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgBatchUserTokenFailed, map[string]any{"Error": err.Error()})
+		return
+	}
+
+	common.SysLog(fmt.Sprintf("管理员 %s (ID:%d) 批量创建了 %d 个用户", c.GetString("username"), creatorId, req.Count))
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    results,
+	})
+}
+
+func GetCreatedUsers(c *gin.Context) {
+	creatorId := c.GetInt("id")
+	myRole := c.GetInt("role")
+
+	// Root can see all, otherwise only own created users
+	pageInfo := common.GetPageQuery(c)
+	var users []*model.User
+	var total int64
+	var err error
+
+	if myRole == common.RoleRootUser {
+		// Root: optionally filter by creator_id query param
+		creatorQuery := c.Query("creator_id")
+		if creatorQuery != "" {
+			cid, parseErr := strconv.Atoi(creatorQuery)
+			if parseErr == nil {
+				users, total, err = model.GetUsersByCreatorId(cid, pageInfo)
+			} else {
+				common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+				return
+			}
+		} else {
+			// Return all users with creator_id > 0
+			users, total, err = model.GetAllCreatedUsers(pageInfo)
+		}
+	} else {
+		users, total, err = model.GetUsersByCreatorId(creatorId, pageInfo)
+	}
+
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(users)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func SearchCreatedUsers(c *gin.Context) {
+	keyword := c.Query("keyword")
+	creatorId := c.GetInt("id")
+	myRole := c.GetInt("role")
+	pageInfo := common.GetPageQuery(c)
+
+	var users []*model.User
+	var total int64
+	var err error
+
+	if myRole == common.RoleRootUser {
+		creatorQuery := c.Query("creator_id")
+		if creatorQuery != "" {
+			cid, parseErr := strconv.Atoi(creatorQuery)
+			if parseErr == nil {
+				users, total, err = model.SearchUsersByCreatorId(cid, keyword, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+			} else {
+				common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+				return
+			}
+		} else {
+			users, total, err = model.SearchAllCreatedUsers(keyword, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+		}
+	} else {
+		users, total, err = model.SearchUsersByCreatorId(creatorId, keyword, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	}
+
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(users)
+	common.ApiSuccess(c, pageInfo)
+}

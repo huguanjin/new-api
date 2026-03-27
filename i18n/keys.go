@@ -102,6 +102,20 @@ const (
 	MsgUserLinuxDOIdEmpty            = "user.linux_do_id_empty"
 )
 
+// Batch user creation messages
+const (
+	MsgBatchUserPrefixEmpty          = "batch_user.prefix_empty"
+	MsgBatchUserPrefixTooLong        = "batch_user.prefix_too_long"
+	MsgBatchUserCountInvalid         = "batch_user.count_invalid"
+	MsgBatchUserPasswordTooShort     = "batch_user.password_too_short"
+	MsgBatchUserModeInvalid          = "batch_user.mode_invalid"
+	MsgBatchUserNameConflict         = "batch_user.name_conflict"
+	MsgBatchUserCreateFailed         = "batch_user.create_failed"
+	MsgBatchUserTokenFailed          = "batch_user.token_failed"
+	MsgBatchUserNoPermission         = "batch_user.no_permission"
+	MsgBatchUserQuotaInsufficient    = "batch_user.quota_insufficient"
+)
+
 // Quota related messages
 const (
 	MsgQuotaNegative        = "quota.negative"

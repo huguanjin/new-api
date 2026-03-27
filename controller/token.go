@@ -353,3 +353,40 @@ func DeleteTokenBatch(c *gin.Context) {
 		"data":    count,
 	})
 }
+
+// GetUserTokensByAdmin allows an admin to view tokens of a user they created.
+func GetUserTokensByAdmin(c *gin.Context) {
+	targetUserId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	myId := c.GetInt("id")
+	myRole := c.GetInt("role")
+
+	// Verify the admin has permission to view this user's tokens
+	if myRole != common.RoleRootUser {
+		targetUser, err := model.GetUserById(targetUserId, false)
+		if err != nil {
+			common.ApiErrorI18n(c, i18n.MsgUserNotExists)
+			return
+		}
+		if targetUser.CreatorId != myId {
+			common.ApiErrorI18n(c, i18n.MsgBatchUserNoPermission)
+			return
+		}
+	}
+
+	tokens, err := model.GetTokensByUserId(targetUserId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    tokens,
+	})
+}
