@@ -28,11 +28,15 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 			var contents []string
 			for key, ra := range info.PriceData.OtherRatios {
 				if 1.0 != ra {
-					contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
+					if key == "seconds" {
+						contents = append(contents, fmt.Sprintf("时长: %.0f秒", ra))
+					} else {
+						contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
+					}
 				}
 			}
 			if len(contents) > 0 {
-				logContent = fmt.Sprintf("%s, 计算参数：%s", logContent, strings.Join(contents, ", "))
+				logContent = fmt.Sprintf("%s，按秒计费（%s）", logContent, strings.Join(contents, ", "))
 			}
 		}
 	}

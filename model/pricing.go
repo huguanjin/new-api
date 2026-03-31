@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 )
@@ -29,6 +30,7 @@ type Pricing struct {
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
 	ResolutionPricing      map[string]float64      `json:"resolution_pricing,omitempty"`
+	BillingUnit            string                  `json:"billing_unit,omitempty"`
 }
 
 type PricingVendor struct {
@@ -302,6 +304,12 @@ func updatePricing() {
 		if resRatios := ratio_setting.GetModelResolutionRatios(model); len(resRatios) > 0 {
 			pricing.ResolutionPricing = resRatios
 		}
+		// 视频按秒计费模型标记：QuotaType=1 且支持 openai-video 端点且不在按次计费列表中
+		if pricing.QuotaType == 1 && hasVideoEndpoint(pricing.SupportedEndpointTypes) &&
+			!operation_setting.IsTaskPerCallBillingModel(model) &&
+			!common.StringsContains(constant.TaskPricePatches, model) {
+			pricing.BillingUnit = "second"
+		}
 		pricingMap = append(pricingMap, pricing)
 	}
 
@@ -326,4 +334,14 @@ func updatePricing() {
 // GetSupportedEndpointMap 返回全局端点到路径的映射
 func GetSupportedEndpointMap() map[string]common.EndpointInfo {
 	return supportedEndpointMap
+}
+
+// hasVideoEndpoint 检查端点类型列表中是否包含视频端点
+func hasVideoEndpoint(endpoints []constant.EndpointType) bool {
+	for _, ep := range endpoints {
+		if ep == constant.EndpointTypeOpenAIVideo {
+			return true
+		}
+	}
+	return false
 }

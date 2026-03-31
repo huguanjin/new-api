@@ -32,12 +32,12 @@ import {
 } from '../../../../common/ui/RenderUtils';
 import { useIsMobile } from '../../../../../hooks/common/useIsMobile';
 
-function renderQuotaType(type, t) {
+function renderQuotaType(type, billingUnit, t) {
   switch (type) {
     case 1:
       return (
         <Tag color='teal' shape='circle'>
-          {t('按次计费')}
+          {billingUnit === 'second' ? t('按秒计费') : t('按次计费')}
         </Tag>
       );
     case 0:
@@ -157,7 +157,7 @@ export const getPricingTableColumns = ({
     title: t('计费类型'),
     dataIndex: 'quota_type',
     render: (text, record, index) => {
-      return renderQuotaType(parseInt(text), t);
+      return renderQuotaType(parseInt(text), record.billing_unit, t);
     },
     sorter: (a, b) => a.quota_type - b.quota_type,
   };
@@ -245,9 +245,10 @@ export const getPricingTableColumns = ({
           </div>
         );
       } else {
+        const unit = record.billing_unit === 'second' ? t('秒') : t('次');
         return (
           <div className='text-gray-700'>
-            {t('模型价格')}：{priceData.price}
+            {t('模型价格')}：{priceData.price} / {unit}
           </div>
         );
       }

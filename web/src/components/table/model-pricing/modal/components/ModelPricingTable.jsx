@@ -72,7 +72,9 @@ const ModelPricingTable = ({
           modelData?.quota_type === 0
             ? t('按量计费')
             : modelData?.quota_type === 1
-              ? t('按次计费')
+              ? modelData?.billing_unit === 'second'
+                ? t('按秒计费')
+                : t('按次计费')
               : '-',
         inputPrice: modelData?.quota_type === 0 ? priceData.inputPrice : '-',
         outputPrice:
@@ -163,7 +165,7 @@ const ModelPricingTable = ({
         render: (text) => (
           <>
             <div className='font-semibold text-orange-600'>{text}</div>
-            <div className='text-xs text-gray-500'>/ 次</div>
+            <div className='text-xs text-gray-500'>/ {modelData?.billing_unit === 'second' ? t('秒') : t('次')}</div>
           </>
         ),
       });
