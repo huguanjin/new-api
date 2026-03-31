@@ -90,6 +90,7 @@ const OperationSetting = () => {
 
     /* 计费设置 */
     'billing_setting.no_output_no_billing_models': '',
+    'billing_setting.task_per_call_billing_models': '',
   });
 
   let [loading, setLoading] = useState(false);

@@ -10,10 +10,14 @@ import (
 type BillingSetting struct {
 	// 无输出不扣费的模型列表（逗号分隔，支持 * 通配符前缀匹配，例如 "gemini-*-image-*,gpt-image-*"）
 	NoOutputNoBillingModels string `json:"no_output_no_billing_models"`
+	// 任务按次计费模型列表（逗号分隔，支持 * 通配符，例如 "sora-*,veo-*"）
+	// 列表中的模型提交视频任务时跳过 OtherRatios（时长、分辨率）乘算，仅按模型固定价格计费
+	TaskPerCallBillingModels string `json:"task_per_call_billing_models"`
 }
 
 var billingSetting = BillingSetting{
-	NoOutputNoBillingModels: "",
+	NoOutputNoBillingModels:  "",
+	TaskPerCallBillingModels: "",
 }
 
 // 缓存解析后的模型列表
@@ -21,6 +25,10 @@ var (
 	parsedNoOutputModels []string
 	parsedModelsMu       sync.RWMutex
 	lastParsedValue      string
+
+	parsedTaskPerCallModels []string
+	parsedTaskPerCallMu     sync.RWMutex
+	lastTaskPerCallValue    string
 )
 
 func init() {
@@ -77,6 +85,56 @@ func getParsedNoOutputModels(raw string) []string {
 	}
 	parsedNoOutputModels = result
 	lastParsedValue = raw
+	return result
+}
+
+// IsTaskPerCallBillingModel 检查指定模型是否在「任务按次计费」列表中（DB 配置）。
+// 注意：调用方应同时检查 constant.TaskPricePatches（环境变量）以保持向后兼容。
+func IsTaskPerCallBillingModel(modelName string) bool {
+	raw := billingSetting.TaskPerCallBillingModels
+	if raw == "" {
+		return false
+	}
+
+	patterns := getParsedTaskPerCallModels(raw)
+	modelLower := strings.ToLower(modelName)
+
+	for _, pattern := range patterns {
+		if matchPattern(modelLower, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// getParsedTaskPerCallModels 懒解析并缓存按次计费模型列表
+func getParsedTaskPerCallModels(raw string) []string {
+	parsedTaskPerCallMu.RLock()
+	if raw == lastTaskPerCallValue {
+		result := parsedTaskPerCallModels
+		parsedTaskPerCallMu.RUnlock()
+		return result
+	}
+	parsedTaskPerCallMu.RUnlock()
+
+	parsedTaskPerCallMu.Lock()
+	defer parsedTaskPerCallMu.Unlock()
+
+	// double check
+	if raw == lastTaskPerCallValue {
+		return parsedTaskPerCallModels
+	}
+
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, strings.ToLower(p))
+		}
+	}
+	parsedTaskPerCallModels = result
+	lastTaskPerCallValue = raw
 	return result
 }
 
