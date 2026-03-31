@@ -673,16 +673,18 @@ func GetAllActiveUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 	return buildSubscriptionSummaries(subs), nil
 }
 
-// HasActiveUserSubscription returns whether the user has any active subscription.
-// This is a lightweight existence check to avoid heavy pre-consume transactions.
-func HasActiveUserSubscription(userId int) (bool, error) {
+// HasActiveUserSubscription returns whether the user has any active subscription
+// that is eligible for the given usingGroup.
+// A subscription is eligible if its UpgradeGroup is empty (no group restriction)
+// or matches the usingGroup exactly.
+func HasActiveUserSubscription(userId int, usingGroup string) (bool, error) {
 	if userId <= 0 {
 		return false, errors.New("invalid userId")
 	}
 	now := common.GetTimestamp()
 	var count int64
 	if err := DB.Model(&UserSubscription{}).
-		Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Where("user_id = ? AND status = ? AND end_time > ? AND (upgrade_group = '' OR upgrade_group = ?)", userId, "active", now, usingGroup).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -1073,7 +1075,9 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 }
 
 // PreConsumeUserSubscription pre-consumes from any active subscription total quota.
-func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64) (*SubscriptionPreConsumeResult, error) {
+// usingGroup is the group of the current API request; only subscriptions whose
+// UpgradeGroup is empty (no restriction) or matches usingGroup are eligible.
+func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64, usingGroup string) (*SubscriptionPreConsumeResult, error) {
 	if userId <= 0 {
 		return nil, errors.New("invalid userId")
 	}
@@ -1121,6 +1125,10 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 		}
 		for _, candidate := range subs {
 			sub := candidate
+			// 分组校验：UpgradeGroup 非空时，仅允许匹配的分组使用该订阅
+			if sub.UpgradeGroup != "" && sub.UpgradeGroup != usingGroup {
+				continue
+			}
 			plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId)
 			if err != nil {
 				return err
