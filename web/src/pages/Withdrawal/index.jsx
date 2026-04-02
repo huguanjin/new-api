@@ -43,7 +43,7 @@ const Withdrawal = () => {
     async (page, size, status) => {
       setLoading(true);
       try {
-        let url = `/api/user/admin/withdrawals?p=${page ?? activePage}&page_size=${size ?? pageSize}`;
+        let url = `/api/user/withdrawals?p=${page ?? activePage}&page_size=${size ?? pageSize}`;
         const s = status !== undefined ? status : statusFilter;
         if (s) {
           url += `&status=${s}`;
@@ -93,7 +93,7 @@ const Withdrawal = () => {
       onOk: async () => {
         setProcessLoading(true);
         try {
-          const res = await API.post(`/api/user/admin/withdrawal/${id}/process`, {
+          const res = await API.post(`/api/user/withdrawal/${id}/process`, {
             action: 'approve',
           });
           const { success, message } = res.data;
@@ -121,7 +121,7 @@ const Withdrawal = () => {
     setProcessLoading(true);
     try {
       const res = await API.post(
-        `/api/user/admin/withdrawal/${rejectModal.id}/process`,
+        `/api/user/withdrawal/${rejectModal.id}/process`,
         {
           action: 'reject',
           remark: rejectRemark,
