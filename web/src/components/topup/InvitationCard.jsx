@@ -195,8 +195,7 @@ const InvitationCard = ({
         </Card>
 
         {/* 返利提现区域 */}
-        {(userState?.user?.commission_total > 0 || userState?.user?.commission_balance > 0 || userState?.user?.aff_count > 0) && (
-          <Card className='!rounded-xl w-full'>
+        <Card className='!rounded-xl w-full'>
             <div className='flex justify-between items-center mb-3'>
               <Text strong style={{ fontSize: '15px' }}>
                 <DollarSign size={14} className='inline mr-1' />
@@ -235,8 +234,7 @@ const InvitationCard = ({
                 </Text>
               </div>
             </div>
-          </Card>
-        )}
+        </Card>
 
         {/* 奖励说明 */}
         <Card
