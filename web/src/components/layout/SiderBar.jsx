@@ -38,6 +38,8 @@ const routerMap = {
   topup: '/console/topup',
   user: '/console/user',
   subscription: '/console/subscription',
+  withdrawal: '/console/withdrawal',
+  'invited-subscriptions': '/console/invited-subscriptions',
   log: '/console/log',
   midjourney: '/console/midjourney',
   setting: '/console/setting',
@@ -131,6 +133,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         to: '/topup',
       },
       {
+        text: t('邀请订阅'),
+        itemKey: 'invited-subscriptions',
+        to: '/invited-subscriptions',
+      },
+      {
         text: t('个人设置'),
         itemKey: 'personal',
         to: '/personal',
@@ -182,6 +189,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('用户管理'),
         itemKey: 'user',
         to: '/user',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('提现审核'),
+        itemKey: 'withdrawal',
+        to: '/withdrawal',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {

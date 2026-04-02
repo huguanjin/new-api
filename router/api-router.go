@@ -90,6 +90,9 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/stripe/amount", controller.RequestStripeAmount)
 				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
+				selfRoute.POST("/withdrawal", middleware.CriticalRateLimit(), controller.RequestWithdrawal)
+				selfRoute.GET("/commission", controller.GetCommissionInfo)
+				selfRoute.GET("/invited-subscriptions", controller.GetInvitedSubscriptions)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 
 				// 2FA routes
@@ -114,6 +117,8 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/", controller.GetAllUsers)
 				adminRoute.GET("/topup", controller.GetAllTopUps)
 				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
+				adminRoute.GET("/withdrawals", controller.AdminGetWithdrawals)
+				adminRoute.POST("/withdrawal/:id/process", controller.AdminProcessWithdrawal)
 				adminRoute.GET("/search", controller.SearchUsers)
 				adminRoute.GET("/:id/oauth/bindings", controller.GetUserOAuthBindingsByAdmin)
 				adminRoute.DELETE("/:id/oauth/bindings/:provider_id", controller.UnbindCustomOAuthByAdmin)

@@ -276,6 +276,7 @@ func migrateDB() error {
 		&SubscriptionPreConsumeRecord{},
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
+		&Withdrawal{},
 	)
 	if err != nil {
 		return err

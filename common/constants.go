@@ -103,6 +103,7 @@ var TelegramBotName = ""
 var QuotaForNewUser = 0
 var QuotaForInviter = 0
 var QuotaForInvitee = 0
+var SubscriptionCommissionRate = 0.0 // 订阅返利比例，0 表示关闭，0.1 表示 10%
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false
@@ -212,4 +213,10 @@ const (
 	TopUpStatusPending = "pending"
 	TopUpStatusSuccess = "success"
 	TopUpStatusExpired = "expired"
+)
+
+const (
+	WithdrawalStatusPending  = "pending"
+	WithdrawalStatusApproved = "approved"
+	WithdrawalStatusRejected = "rejected"
 )

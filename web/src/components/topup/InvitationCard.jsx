@@ -27,7 +27,7 @@ import {
   Badge,
   Space,
 } from '@douyinfe/semi-ui';
-import { Copy, Users, BarChart2, TrendingUp, Gift, Zap } from 'lucide-react';
+import { Copy, Users, BarChart2, TrendingUp, Gift, Zap, Banknote, DollarSign } from 'lucide-react';
 
 const { Text } = Typography;
 
@@ -36,6 +36,7 @@ const InvitationCard = ({
   userState,
   renderQuota,
   setOpenTransfer,
+  setOpenWithdraw,
   affLink,
   handleAffLinkClick,
 }) => {
@@ -193,6 +194,50 @@ const InvitationCard = ({
           />
         </Card>
 
+        {/* 返利提现区域 */}
+        {(userState?.user?.commission_total > 0 || userState?.user?.commission_balance > 0) && (
+          <Card className='!rounded-xl w-full'>
+            <div className='flex justify-between items-center mb-3'>
+              <Text strong style={{ fontSize: '15px' }}>
+                <DollarSign size={14} className='inline mr-1' />
+                {t('订阅返利')}
+              </Text>
+              <Button
+                type='warning'
+                theme='solid'
+                size='small'
+                disabled={
+                  !userState?.user?.commission_balance ||
+                  userState?.user?.commission_balance <= 0
+                }
+                onClick={() => setOpenWithdraw(true)}
+                className='!rounded-lg'
+              >
+                <Banknote size={12} className='mr-1' />
+                {t('提现')}
+              </Button>
+            </div>
+            <div className='grid grid-cols-2 gap-4'>
+              <div className='text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg'>
+                <div className='text-lg font-bold text-green-600'>
+                  ¥{(userState?.user?.commission_balance || 0).toFixed(2)}
+                </div>
+                <Text type='tertiary' className='text-xs'>
+                  {t('可提现金额')}
+                </Text>
+              </div>
+              <div className='text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg'>
+                <div className='text-lg font-bold text-blue-600'>
+                  ¥{(userState?.user?.commission_total || 0).toFixed(2)}
+                </div>
+                <Text type='tertiary' className='text-xs'>
+                  {t('累计返利')}
+                </Text>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* 奖励说明 */}
         <Card
           className='!rounded-xl w-full'
@@ -217,6 +262,13 @@ const InvitationCard = ({
               <Badge dot type='success' />
               <Text type='tertiary' className='text-sm'>
                 {t('邀请的好友越多，获得的奖励越多')}
+              </Text>
+            </div>
+
+            <div className='flex items-start gap-2'>
+              <Badge dot type='success' />
+              <Text type='tertiary' className='text-sm'>
+                {t('邀请的好友订阅套餐后，您可获得现金返利，可申请提现')}
               </Text>
             </div>
           </div>

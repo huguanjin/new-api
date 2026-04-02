@@ -38,6 +38,7 @@ import InvitationCard from './InvitationCard';
 import TransferModal from './modals/TransferModal';
 import PaymentConfirmModal from './modals/PaymentConfirmModal';
 import TopupHistoryModal from './modals/TopupHistoryModal';
+import WithdrawModal from './modals/WithdrawModal';
 
 const TopUp = () => {
   const { t } = useTranslation();
@@ -83,6 +84,10 @@ const TopUp = () => {
   const [affLink, setAffLink] = useState('');
   const [openTransfer, setOpenTransfer] = useState(false);
   const [transferAmount, setTransferAmount] = useState(0);
+
+  // 提现相关状态
+  const [openWithdraw, setOpenWithdraw] = useState(false);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
   // 账单Modal状态
   const [openHistory, setOpenHistory] = useState(false);
@@ -525,6 +530,26 @@ const TopUp = () => {
     }
   };
 
+  // 提现
+  const handleWithdraw = async (values) => {
+    setWithdrawLoading(true);
+    try {
+      const res = await API.post('/api/user/withdrawal', values);
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('提现申请已提交，请等待管理员审核'));
+        setOpenWithdraw(false);
+        getUserQuota().then();
+      } else {
+        showError(message);
+      }
+    } catch (err) {
+      showError(t('请求失败'));
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
+
   // 复制邀请链接
   const handleAffLinkClick = async () => {
     await copy(affLink);
@@ -731,6 +756,16 @@ const TopUp = () => {
         )}
       </Modal>
 
+      {/* 提现模态框 */}
+      <WithdrawModal
+        t={t}
+        visible={openWithdraw}
+        onOk={handleWithdraw}
+        onCancel={() => setOpenWithdraw(false)}
+        commissionBalance={userState?.user?.commission_balance || 0}
+        confirmLoading={withdrawLoading}
+      />
+
       {/* 主布局区域 */}
       <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
         <RechargeCard
@@ -781,6 +816,7 @@ const TopUp = () => {
           userState={userState}
           renderQuota={renderQuota}
           setOpenTransfer={setOpenTransfer}
+          setOpenWithdraw={setOpenWithdraw}
           affLink={affLink}
           handleAffLinkClick={handleAffLinkClick}
         />

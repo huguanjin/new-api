@@ -256,6 +256,11 @@ type UserSubscription struct {
 	// RPM limit snapshot from plan at purchase time (0 = no limit)
 	RpmLimit int `json:"rpm_limit" gorm:"type:int;not null;default:0"`
 
+	// Order payment amount (CNY), 0 for admin-granted subscriptions
+	OrderMoney float64 `json:"order_money" gorm:"type:decimal(10,2);default:0"`
+	// Commission paid to inviter for this subscription (CNY)
+	Commission float64 `json:"commission" gorm:"type:decimal(10,2);default:0"`
+
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
 }
@@ -440,7 +445,7 @@ func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now
 	return prevGroup, nil
 }
 
-func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string) (*UserSubscription, error) {
+func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string, orderMoney float64) (*UserSubscription, error) {
 	if tx == nil {
 		return nil, errors.New("tx is nil")
 	}
@@ -502,6 +507,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		UpgradeGroup:  upgradeGroup,
 		PrevUserGroup: prevGroup,
 		RpmLimit:      plan.RpmLimit,
+		OrderMoney:    orderMoney,
 		CreatedAt:     common.GetTimestamp(),
 		UpdatedAt:     common.GetTimestamp(),
 	}
@@ -525,6 +531,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string) error {
 	var logMoney float64
 	var logPaymentMethod string
 	var upgradeGroup string
+	var logSubscriptionId int
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(&order).Error; err != nil {
@@ -544,10 +551,11 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string) error {
 			// still allow completion for already purchased orders
 		}
 		upgradeGroup = strings.TrimSpace(plan.UpgradeGroup)
-		_, err = CreateUserSubscriptionFromPlanTx(tx, order.UserId, plan, "order")
+		sub, err := CreateUserSubscriptionFromPlanTx(tx, order.UserId, plan, "order", order.Money)
 		if err != nil {
 			return err
 		}
+		logSubscriptionId = sub.Id
 		if err := upsertSubscriptionTopUpTx(tx, &order); err != nil {
 			return err
 		}
@@ -574,8 +582,41 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string) error {
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
 		RecordLog(logUserId, LogTypeTopup, msg)
+
+		// 订阅返利：如果该用户有邀请者且返利比例 > 0，给邀请者发放返利
+		if common.SubscriptionCommissionRate > 0 && logMoney > 0 {
+			go grantSubscriptionCommission(logUserId, logMoney, logPlanTitle, logSubscriptionId)
+		}
 	}
 	return nil
+}
+
+// grantSubscriptionCommission 给邀请者发放订阅返利
+func grantSubscriptionCommission(subscriberUserId int, money float64, planTitle string, subscriptionId int) {
+	user, err := GetUserById(subscriberUserId, false)
+	if err != nil || user.InviterId <= 0 {
+		return
+	}
+	commission := money * common.SubscriptionCommissionRate
+	if commission <= 0 {
+		return
+	}
+
+	err = DB.Model(&User{}).Where("id = ?", user.InviterId).
+		Updates(map[string]interface{}{
+			"commission_balance": gorm.Expr("commission_balance + ?", commission),
+			"commission_total":   gorm.Expr("commission_total + ?", commission),
+		}).Error
+	if err != nil {
+		common.SysError(fmt.Sprintf("grant subscription commission failed: userId=%d, inviterId=%d, err=%s", subscriberUserId, user.InviterId, err.Error()))
+		return
+	}
+	// Record commission on the subscription record
+	if subscriptionId > 0 {
+		DB.Model(&UserSubscription{}).Where("id = ?", subscriptionId).Update("commission", commission)
+	}
+	RecordLog(user.InviterId, LogTypeTopup,
+		fmt.Sprintf("邀请用户订阅返利，被邀请用户ID: %d，套餐: %s，订阅金额: %.2f 元，返利: %.2f 元", subscriberUserId, planTitle, money, commission))
 }
 
 func upsertSubscriptionTopUpTx(tx *gorm.DB, order *SubscriptionOrder) error {
@@ -644,7 +685,7 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 		return "", err
 	}
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		_, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "admin")
+		_, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "admin", 0)
 		return err
 	})
 	if err != nil {
@@ -820,6 +861,112 @@ func AdminListAllUserSubscriptions(page, pageSize int, status string, keyword st
 	items := make([]AdminUserSubscriptionItem, 0, len(subs))
 	for _, sub := range subs {
 		item := AdminUserSubscriptionItem{
+			UserSubscription: sub,
+			PlanTitle:        planMap[sub.PlanId],
+		}
+		if info, ok := userMap[sub.UserId]; ok {
+			item.Username = info[0]
+			item.DisplayName = info[1]
+		}
+		items = append(items, item)
+	}
+
+	return items, total, nil
+}
+
+// InvitedSubscriptionItem is a DTO for invited user subscription display.
+type InvitedSubscriptionItem struct {
+	UserSubscription
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+	PlanTitle   string `json:"plan_title"`
+}
+
+// GetInvitedUserSubscriptions returns subscriptions of users invited by the given inviterId.
+func GetInvitedUserSubscriptions(inviterId int, page, pageSize int, status string) ([]InvitedSubscriptionItem, int64, error) {
+	if inviterId <= 0 {
+		return []InvitedSubscriptionItem{}, 0, nil
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	// Get all user IDs invited by this user
+	var invitedUserIds []int
+	if err := DB.Model(&User{}).Select("id").Where("inviter_id = ?", inviterId).Find(&invitedUserIds).Error; err != nil {
+		return nil, 0, err
+	}
+	if len(invitedUserIds) == 0 {
+		return []InvitedSubscriptionItem{}, 0, nil
+	}
+
+	query := DB.Model(&UserSubscription{}).Where("user_id IN ?", invitedUserIds)
+
+	// Filter by status
+	if status != "" && status != "all" {
+		now := common.GetTimestamp()
+		switch status {
+		case "active":
+			query = query.Where("status = ? AND end_time > ?", "active", now)
+		case "expired":
+			query = query.Where("status = ? AND end_time <= ?", "active", now)
+		case "cancelled":
+			query = query.Where("status = ?", "cancelled")
+		}
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var subs []UserSubscription
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at desc, id desc").Offset(offset).Limit(pageSize).Find(&subs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Batch load usernames
+	userMap := make(map[int][2]string)
+	if len(subs) > 0 {
+		uids := make([]int, 0, len(subs))
+		for _, s := range subs {
+			uids = append(uids, s.UserId)
+		}
+		var users []struct {
+			Id          int    `gorm:"column:id"`
+			Username    string `gorm:"column:username"`
+			DisplayName string `gorm:"column:display_name"`
+		}
+		DB.Model(&User{}).Select("id, username, display_name").Where("id IN ?", uids).Find(&users)
+		for _, u := range users {
+			userMap[u.Id] = [2]string{u.Username, u.DisplayName}
+		}
+	}
+
+	// Batch load plan titles
+	planMap := make(map[int]string)
+	if len(subs) > 0 {
+		pids := make([]int, 0, len(subs))
+		for _, s := range subs {
+			pids = append(pids, s.PlanId)
+		}
+		var plans []struct {
+			Id    int    `gorm:"column:id"`
+			Title string `gorm:"column:title"`
+		}
+		DB.Model(&SubscriptionPlan{}).Select("id, title").Where("id IN ?", pids).Find(&plans)
+		for _, p := range plans {
+			planMap[p.Id] = p.Title
+		}
+	}
+
+	items := make([]InvitedSubscriptionItem, 0, len(subs))
+	for _, sub := range subs {
+		item := InvitedSubscriptionItem{
 			UserSubscription: sub,
 			PlanTitle:        planMap[sub.PlanId],
 		}
