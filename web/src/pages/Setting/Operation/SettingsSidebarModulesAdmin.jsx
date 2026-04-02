@@ -131,6 +131,8 @@ export default function SettingsSidebarModulesAdmin(props) {
         redemption: true,
         user: true,
         subscription: true,
+        withdrawal: true,
+        batch_user: true,
         setting: true,
       },
     };
@@ -200,6 +202,8 @@ export default function SettingsSidebarModulesAdmin(props) {
             redemption: true,
             user: true,
             subscription: true,
+            withdrawal: true,
+            batch_user: true,
             setting: true,
           },
         };
@@ -284,6 +288,11 @@ export default function SettingsSidebarModulesAdmin(props) {
           key: 'batch_user',
           title: t('批量创建用户'),
           description: t('批量创建和管理用户'),
+        },
+        {
+          key: 'withdrawal',
+          title: t('提现审核'),
+          description: t('审核用户提现申请'),
         },
         {
           key: 'setting',

@@ -42,6 +42,7 @@ const DEFAULT_ADMIN_ROLE_PERMISSIONS = {
   redemption: true,
   user: true,
   batch_user: true,
+  withdrawal: true,
   setting: {
     operation: false,
     dashboard: false,
@@ -158,6 +159,7 @@ export default function SettingsAdminPermissions(props) {
     { key: 'redemption', title: t('兑换码管理'), description: t('管理兑换码生成') },
     { key: 'user', title: t('用户管理'), description: t('管理用户账户') },
     { key: 'batch_user', title: t('批量创建用户'), description: t('批量创建和管理用户') },
+    { key: 'withdrawal', title: t('提现审核'), description: t('审核用户提现申请') },
   ];
 
   const settingPermissionItems = [

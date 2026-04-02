@@ -52,6 +52,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     redemption: true,
     user: true,
     subscription: true,
+    withdrawal: true,
     batch_user: true,
     setting: true,
   },
