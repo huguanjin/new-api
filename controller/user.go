@@ -268,11 +268,6 @@ func GetUser(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	myRole := c.GetInt("role")
-	if myRole <= user.Role && myRole != common.RoleRootUser {
-		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
-		return
-	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",

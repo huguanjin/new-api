@@ -136,11 +136,15 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_PPROF") == "true" {
+		pprofPort := os.Getenv("PPROF_PORT")
+		if pprofPort == "" {
+			pprofPort = "8005"
+		}
 		gopool.Go(func() {
-			log.Println(http.ListenAndServe("0.0.0.0:8005", nil))
+			log.Println(http.ListenAndServe("0.0.0.0:"+pprofPort, nil))
 		})
 		go common.Monitor()
-		common.SysLog("pprof enabled")
+		common.SysLog("pprof enabled on port " + pprofPort)
 	}
 
 	err = common.StartPyroScope()
