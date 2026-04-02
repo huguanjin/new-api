@@ -2946,6 +2946,7 @@
     "运行时长": "Runtime Duration",
     "运行时长（小时）": "Runtime Duration (hours)",
     "返利金额": "Commission Amount",
+    "返利金额 = 好友订阅支付金额 × 返利比例，返利到账后可申请提现至支付宝": "Commission = friend's subscription amount × commission rate. You can apply for Alipay withdrawal after commission arrives",
     "返回修改": "Go back and edit",
     "返回登录": "Return to Login",
     "这将删除超过 10 分钟未使用的临时缓存文件": "This will delete temporary cache files that have not been used for more than 10 minutes",

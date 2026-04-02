@@ -195,7 +195,7 @@ const InvitationCard = ({
         </Card>
 
         {/* 返利提现区域 */}
-        {(userState?.user?.commission_total > 0 || userState?.user?.commission_balance > 0) && (
+        {(userState?.user?.commission_total > 0 || userState?.user?.commission_balance > 0 || userState?.user?.aff_count > 0) && (
           <Card className='!rounded-xl w-full'>
             <div className='flex justify-between items-center mb-3'>
               <Text strong style={{ fontSize: '15px' }}>
@@ -269,6 +269,22 @@ const InvitationCard = ({
               <Badge dot type='success' />
               <Text type='tertiary' className='text-sm'>
                 {t('邀请的好友订阅套餐后，您可获得现金返利，可申请提现')}
+              </Text>
+            </div>
+
+            <div className='flex items-start gap-2'>
+              <Badge dot type='success' />
+              <Text type='tertiary' className='text-sm'>
+                {t('返利金额 = 好友订阅支付金额 × 返利比例，返利到账后可申请提现至支付宝')}
+              </Text>
+            </div>
+
+            <div className='flex items-start gap-2'>
+              <Badge dot type='success' />
+              <Text type='tertiary' className='text-sm'>
+                <a href='/console/invited-subscriptions' style={{ color: 'var(--semi-color-link)' }}>
+                  {t('查看邀请用户订阅记录')}
+                </a>
               </Text>
             </div>
           </div>

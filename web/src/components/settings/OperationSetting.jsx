@@ -38,6 +38,7 @@ const OperationSetting = () => {
     PreConsumedQuota: 0,
     QuotaForInviter: 0,
     QuotaForInvitee: 0,
+    SubscriptionCommissionRate: 0,
     'quota_setting.enable_free_model_pre_consume': true,
 
     /* 通用设置 */
