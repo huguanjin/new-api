@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
@@ -378,6 +379,56 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 
 	// 提交事务
 	return tx.Commit().Error
+}
+
+// TransferCommissionToQuota 将返利余额（元）划转为账户额度
+func (user *User) TransferCommissionToQuota(amount float64) (int, error) {
+	if amount <= 0 {
+		return 0, errors.New("划转金额必须大于0")
+	}
+
+	price := operation_setting.Price
+	if price <= 0 {
+		return 0, errors.New("系统价格配置异常")
+	}
+
+	// 元 → 美元 → 额度
+	quota := int(amount / price * common.QuotaPerUnit)
+	if quota <= 0 {
+		return 0, errors.New("划转金额过小，无法转换为有效额度")
+	}
+
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return 0, tx.Error
+	}
+	defer tx.Rollback()
+
+	// 加锁查询用户以确保数据一致性
+	err := tx.Set("gorm:query_option", "FOR UPDATE").First(&user, user.Id).Error
+	if err != nil {
+		return 0, err
+	}
+
+	if user.CommissionBalance < amount {
+		return 0, errors.New("返利余额不足")
+	}
+
+	user.CommissionBalance -= amount
+	user.Quota += quota
+
+	if err := tx.Save(user).Error; err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
+	}
+
+	RecordLog(user.Id, LogTypeTopup,
+		fmt.Sprintf("返利划转余额，划转金额: %.2f 元，获得额度: %s", amount, logger.LogQuota(quota)))
+
+	return quota, nil
 }
 
 func (user *User) Insert(inviterId int) error {

@@ -39,6 +39,7 @@ import TransferModal from './modals/TransferModal';
 import PaymentConfirmModal from './modals/PaymentConfirmModal';
 import TopupHistoryModal from './modals/TopupHistoryModal';
 import WithdrawModal from './modals/WithdrawModal';
+import CommissionTransferModal from './modals/CommissionTransferModal';
 
 const TopUp = () => {
   const { t } = useTranslation();
@@ -88,6 +89,11 @@ const TopUp = () => {
   // 提现相关状态
   const [openWithdraw, setOpenWithdraw] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+
+  // 返利划转相关状态
+  const [openCommissionTransfer, setOpenCommissionTransfer] = useState(false);
+  const [commissionTransferLoading, setCommissionTransferLoading] = useState(false);
+  const [commissionRate, setCommissionRate] = useState(0);
 
   // 账单Modal状态
   const [openHistory, setOpenHistory] = useState(false);
@@ -550,6 +556,38 @@ const TopUp = () => {
     }
   };
 
+  // 返利划转至余额
+  const handleCommissionTransfer = async (values) => {
+    setCommissionTransferLoading(true);
+    try {
+      const res = await API.post('/api/user/commission_transfer', values);
+      const { success, message } = res.data;
+      if (success) {
+        showSuccess(t('划转成功'));
+        setOpenCommissionTransfer(false);
+        getUserQuota().then();
+      } else {
+        showError(message);
+      }
+    } catch (err) {
+      showError(t('请求失败'));
+    } finally {
+      setCommissionTransferLoading(false);
+    }
+  };
+
+  // 获取返利比例
+  const getCommissionInfo = async () => {
+    try {
+      const res = await API.get('/api/user/commission');
+      if (res.data?.success && res.data.data) {
+        setCommissionRate(res.data.data.commission_rate || 0);
+      }
+    } catch (err) {
+      // ignore
+    }
+  };
+
   // 复制邀请链接
   const handleAffLinkClick = async () => {
     await copy(affLink);
@@ -560,6 +598,7 @@ const TopUp = () => {
     // 始终获取最新用户数据，确保余额等统计信息准确
     getUserQuota().then();
     setTransferAmount(getQuotaPerUnit());
+    getCommissionInfo().then();
   }, []);
 
   useEffect(() => {
@@ -766,6 +805,19 @@ const TopUp = () => {
         confirmLoading={withdrawLoading}
       />
 
+      {/* 返利划转模态框 */}
+      <CommissionTransferModal
+        t={t}
+        visible={openCommissionTransfer}
+        onOk={handleCommissionTransfer}
+        onCancel={() => setOpenCommissionTransfer(false)}
+        commissionBalance={userState?.user?.commission_balance || 0}
+        confirmLoading={commissionTransferLoading}
+        priceRatio={priceRatio}
+        renderQuota={renderQuota}
+        getQuotaPerUnit={getQuotaPerUnit}
+      />
+
       {/* 主布局区域 */}
       <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
         <RechargeCard
@@ -817,6 +869,8 @@ const TopUp = () => {
           renderQuota={renderQuota}
           setOpenTransfer={setOpenTransfer}
           setOpenWithdraw={setOpenWithdraw}
+          setOpenCommissionTransfer={setOpenCommissionTransfer}
+          commissionRate={commissionRate}
           affLink={affLink}
           handleAffLinkClick={handleAffLinkClick}
         />

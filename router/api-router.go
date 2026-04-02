@@ -91,6 +91,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
 				selfRoute.POST("/withdrawal", middleware.CriticalRateLimit(), controller.RequestWithdrawal)
+				selfRoute.POST("/commission_transfer", middleware.CriticalRateLimit(), controller.TransferCommissionToQuota)
 				selfRoute.GET("/commission", controller.GetCommissionInfo)
 				selfRoute.GET("/invited-subscriptions", controller.GetInvitedSubscriptions)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)

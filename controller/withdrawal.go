@@ -97,6 +97,45 @@ func GetCommissionInfo(c *gin.Context) {
 		"data": gin.H{
 			"commission_balance": user.CommissionBalance,
 			"commission_total":   user.CommissionTotal,
+			"commission_rate":    common.SubscriptionCommissionRate,
+		},
+	})
+}
+
+type CommissionTransferRequest struct {
+	Amount float64 `json:"amount"`
+}
+
+// TransferCommissionToQuota transfers commission balance to user quota.
+func TransferCommissionToQuota(c *gin.Context) {
+	var req CommissionTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "参数错误"})
+		return
+	}
+	if req.Amount <= 0 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "划转金额必须大于0"})
+		return
+	}
+
+	userId := c.GetInt("id")
+	user, err := model.GetUserById(userId, false)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	quota, err := user.TransferCommissionToQuota(req.Amount)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "划转成功",
+		"data": gin.H{
+			"quota": quota,
 		},
 	})
 }

@@ -27,7 +27,7 @@ import {
   Badge,
   Space,
 } from '@douyinfe/semi-ui';
-import { Copy, Users, BarChart2, TrendingUp, Gift, Zap, Banknote, DollarSign } from 'lucide-react';
+import { Copy, Users, BarChart2, TrendingUp, Gift, Zap, Banknote, DollarSign, ArrowRightLeft } from 'lucide-react';
 
 const { Text } = Typography;
 
@@ -37,6 +37,8 @@ const InvitationCard = ({
   renderQuota,
   setOpenTransfer,
   setOpenWithdraw,
+  setOpenCommissionTransfer,
+  commissionRate,
   affLink,
   handleAffLinkClick,
 }) => {
@@ -201,20 +203,36 @@ const InvitationCard = ({
                 <DollarSign size={14} className='inline mr-1' />
                 {t('订阅返利')}
               </Text>
-              <Button
-                type='warning'
-                theme='solid'
-                size='small'
-                disabled={
-                  !userState?.user?.commission_balance ||
-                  userState?.user?.commission_balance <= 0
-                }
-                onClick={() => setOpenWithdraw(true)}
-                className='!rounded-lg'
-              >
-                <Banknote size={12} className='mr-1' />
-                {t('提现')}
-              </Button>
+              <Space>
+                <Button
+                  type='primary'
+                  theme='solid'
+                  size='small'
+                  disabled={
+                    !userState?.user?.commission_balance ||
+                    userState?.user?.commission_balance <= 0
+                  }
+                  onClick={() => setOpenCommissionTransfer(true)}
+                  className='!rounded-lg'
+                >
+                  <ArrowRightLeft size={12} className='mr-1' />
+                  {t('划转至余额')}
+                </Button>
+                <Button
+                  type='warning'
+                  theme='solid'
+                  size='small'
+                  disabled={
+                    !userState?.user?.commission_balance ||
+                    userState?.user?.commission_balance <= 0
+                  }
+                  onClick={() => setOpenWithdraw(true)}
+                  className='!rounded-lg'
+                >
+                  <Banknote size={12} className='mr-1' />
+                  {t('提现')}
+                </Button>
+              </Space>
             </div>
             <div className='grid grid-cols-2 gap-4'>
               <div className='text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg'>
@@ -266,16 +284,25 @@ const InvitationCard = ({
             <div className='flex items-start gap-2'>
               <Badge dot type='success' />
               <Text type='tertiary' className='text-sm'>
-                {t('邀请的好友订阅套餐后，您可获得现金返利，可申请提现')}
+                {t('邀请的好友订阅套餐后，您可获得现金返利，可申请提现或划转至余额')}
               </Text>
             </div>
 
             <div className='flex items-start gap-2'>
               <Badge dot type='success' />
               <Text type='tertiary' className='text-sm'>
-                {t('返利金额 = 好友订阅支付金额 × 返利比例，返利到账后可申请提现至支付宝')}
+                {t('返利金额 = 好友订阅支付金额 × 返利比例，返利到账后可申请提现至支付宝或划转至账户余额')}
               </Text>
             </div>
+
+            {commissionRate > 0 && (
+              <div className='flex items-start gap-2'>
+                <Badge dot type='warning' />
+                <Text type='tertiary' className='text-sm'>
+                  {t('当前订阅返利比例为') + ` ${(commissionRate * 100).toFixed(0)}%`}
+                </Text>
+              </div>
+            )}
 
             <div className='flex items-start gap-2'>
               <Badge dot type='success' />
