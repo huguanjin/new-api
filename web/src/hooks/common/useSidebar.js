@@ -272,7 +272,17 @@ export const useSidebar = () => {
           !isRoot() &&
           adminRolePermissions
         ) {
-          roleAllowed = adminRolePermissions[moduleKey] !== false;
+          if (moduleKey === 'setting') {
+            // setting 使用嵌套对象，只要有任何子权限为 true 就显示
+            const settingPerms = adminRolePermissions[moduleKey];
+            if (typeof settingPerms === 'object' && settingPerms !== null) {
+              roleAllowed = Object.values(settingPerms).some((v) => v === true);
+            } else {
+              roleAllowed = settingPerms !== false;
+            }
+          } else {
+            roleAllowed = adminRolePermissions[moduleKey] !== false;
+          }
         }
 
         result[sectionKey][moduleKey] =

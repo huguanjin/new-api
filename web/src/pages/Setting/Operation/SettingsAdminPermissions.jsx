@@ -42,6 +42,20 @@ const DEFAULT_ADMIN_ROLE_PERMISSIONS = {
   redemption: true,
   user: true,
   batch_user: true,
+  setting: {
+    operation: false,
+    dashboard: false,
+    chats: false,
+    drawing: false,
+    payment: false,
+    ratio: false,
+    ratelimit: false,
+    models: false,
+    model_deployment: false,
+    performance: false,
+    system: false,
+    other: false,
+  },
 };
 
 export default function SettingsAdminPermissions(props) {
@@ -58,6 +72,28 @@ export default function SettingsAdminPermissions(props) {
         [key]: checked,
       }));
     };
+  }
+
+  function handleSettingPermissionChange(subKey) {
+    return (checked) => {
+      setPermissions((prev) => ({
+        ...prev,
+        setting: {
+          ...prev.setting,
+          [subKey]: checked,
+        },
+      }));
+    };
+  }
+
+  function handleSettingAllChange(checked) {
+    setPermissions((prev) => {
+      const newSetting = {};
+      Object.keys(prev.setting).forEach((k) => {
+        newSetting[k] = checked;
+      });
+      return { ...prev, setting: newSetting };
+    });
   }
 
   function resetPermissions() {
@@ -101,7 +137,13 @@ export default function SettingsAdminPermissions(props) {
     if (props.options && props.options.AdminRolePermissions) {
       try {
         const parsed = JSON.parse(props.options.AdminRolePermissions);
-        setPermissions({ ...DEFAULT_ADMIN_ROLE_PERMISSIONS, ...parsed });
+        const merged = { ...DEFAULT_ADMIN_ROLE_PERMISSIONS, ...parsed };
+        if (typeof parsed.setting === 'object' && parsed.setting !== null) {
+          merged.setting = { ...DEFAULT_ADMIN_ROLE_PERMISSIONS.setting, ...parsed.setting };
+        } else {
+          merged.setting = { ...DEFAULT_ADMIN_ROLE_PERMISSIONS.setting };
+        }
+        setPermissions(merged);
       } catch (error) {
         setPermissions({ ...DEFAULT_ADMIN_ROLE_PERMISSIONS });
       }
@@ -117,6 +159,24 @@ export default function SettingsAdminPermissions(props) {
     { key: 'user', title: t('用户管理'), description: t('管理用户账户') },
     { key: 'batch_user', title: t('批量创建用户'), description: t('批量创建和管理用户') },
   ];
+
+  const settingPermissionItems = [
+    { key: 'operation', title: t('运营设置') },
+    { key: 'dashboard', title: t('仪表盘设置') },
+    { key: 'chats', title: t('聊天设置') },
+    { key: 'drawing', title: t('绘图设置') },
+    { key: 'payment', title: t('支付设置') },
+    { key: 'ratio', title: t('分组与模型定价设置') },
+    { key: 'ratelimit', title: t('速率限制设置') },
+    { key: 'models', title: t('模型相关设置') },
+    { key: 'model_deployment', title: t('模型部署设置') },
+    { key: 'performance', title: t('性能设置') },
+    { key: 'system', title: t('系统设置') },
+    { key: 'other', title: t('其他设置') },
+  ];
+
+  const allSettingEnabled = permissions.setting && Object.values(permissions.setting).every((v) => v === true);
+  const someSettingEnabled = permissions.setting && Object.values(permissions.setting).some((v) => v === true);
 
   return (
     <Card>
@@ -186,6 +246,55 @@ export default function SettingsAdminPermissions(props) {
             </Col>
           ))}
         </Row>
+
+        <Form.Section
+          text={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span>{t('系统设置子权限')}</span>
+              <Switch
+                checked={allSettingEnabled}
+                onChange={handleSettingAllChange}
+                size='small'
+              />
+              <Text type='tertiary' size='small'>
+                {allSettingEnabled ? t('全部开启') : someSettingEnabled ? t('部分开启') : t('全部关闭')}
+              </Text>
+            </div>
+          }
+          extraText={t('控制普通管理员可访问的系统设置标签页')}
+          style={{ marginTop: '16px' }}
+        >
+          <Row gutter={[16, 16]}>
+            {settingPermissionItems.map((item) => (
+              <Col key={item.key} xs={24} sm={12} md={8} lg={6} xl={6}>
+                <Card bodyStyle={{ padding: '12px 16px' }} hoverable>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        color: 'var(--semi-color-text-0)',
+                      }}
+                    >
+                      {item.title}
+                    </div>
+                    <Switch
+                      checked={permissions.setting?.[item.key] || false}
+                      onChange={handleSettingPermissionChange(item.key)}
+                      size='default'
+                    />
+                  </div>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </Form.Section>
 
         <div
           style={{

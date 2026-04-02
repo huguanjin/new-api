@@ -29,7 +29,7 @@ import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
 import SettingsCheckin from '../../pages/Setting/Operation/SettingsCheckin';
 import SettingsBilling from '../../pages/Setting/Operation/SettingsBilling';
-import { API, showError, toBoolean } from '../../helpers';
+import { API, showError, toBoolean, isRoot } from '../../helpers';
 
 const OperationSetting = () => {
   let [inputs, setInputs] = useState({
@@ -142,13 +142,17 @@ const OperationSetting = () => {
           <SettingsHeaderNavModules options={inputs} refresh={onRefresh} />
         </div>
         {/* 左侧边栏模块管理（管理员） */}
-        <div style={{ marginTop: '10px' }}>
-          <SettingsSidebarModulesAdmin options={inputs} refresh={onRefresh} />
-        </div>
+        {isRoot() && (
+          <div style={{ marginTop: '10px' }}>
+            <SettingsSidebarModulesAdmin options={inputs} refresh={onRefresh} />
+          </div>
+        )}
         {/* 管理员角色授权 */}
-        <div style={{ marginTop: '10px' }}>
-          <SettingsAdminPermissions options={inputs} refresh={onRefresh} />
-        </div>
+        {isRoot() && (
+          <div style={{ marginTop: '10px' }}>
+            <SettingsAdminPermissions options={inputs} refresh={onRefresh} />
+          </div>
+        )}
         {/* 屏蔽词过滤设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsSensitiveWords options={inputs} refresh={onRefresh} />

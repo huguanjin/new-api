@@ -3271,6 +3271,12 @@
     "导出CSV": "Export CSV",
     "查看令牌": "View Tokens",
     "令牌Key": "Token Key",
-    "序号": "No."
+    "序号": "No.",
+    "系统设置子权限": "System Settings Sub-Permissions",
+    "控制普通管理员可访问的系统设置标签页": "Control which system settings tabs are accessible to regular admins",
+    "全部开启": "All Enabled",
+    "全部关闭": "All Disabled",
+    "部分开启": "Partially Enabled",
+    "无权修改此选项": "No permission to modify this option"
   }
 }

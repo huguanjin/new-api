@@ -17,8 +17,42 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func isRootOnlyOption(key string) bool {
+	rootOnlyExact := map[string]bool{
+		"SidebarModulesAdmin":  true,
+		"AdminRolePermissions": true,
+	}
+	if rootOnlyExact[key] {
+		return true
+	}
+	rootOnlyPrefixes := []string{
+		"GitHubClient", "GitHubOAuth",
+		"discord.", "oidc.",
+		"LinuxDOClient", "LinuxDOOAuth",
+		"WeChat", "Telegram",
+		"SMTP", "Turnstile",
+		"EmailDomain", "EmailVerification",
+		"PasswordRegist", "PasswordLogin",
+		"RegisterEnabled",
+		"custom_oauth.",
+	}
+	for _, prefix := range rootOnlyPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	rootOnlySuffixes := []string{"Token", "Secret", "Key", "Password", "secret", "api_key"}
+	for _, suffix := range rootOnlySuffixes {
+		if strings.HasSuffix(key, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
+	myRole := c.GetInt("role")
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
 		if strings.HasSuffix(k, "Token") ||
@@ -26,6 +60,9 @@ func GetOptions(c *gin.Context) {
 			strings.HasSuffix(k, "Key") ||
 			strings.HasSuffix(k, "secret") ||
 			strings.HasSuffix(k, "api_key") {
+			continue
+		}
+		if myRole < common.RoleRootUser && isRootOnlyOption(k) {
 			continue
 		}
 		options = append(options, &model.Option{
@@ -54,6 +91,14 @@ func UpdateOption(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "无效的参数",
+		})
+		return
+	}
+	myRole := c.GetInt("role")
+	if myRole < common.RoleRootUser && isRootOnlyOption(option.Key) {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "无权修改此选项",
 		})
 		return
 	}
