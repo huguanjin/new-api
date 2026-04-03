@@ -46,9 +46,13 @@ func SearchModelsMeta(c *gin.Context) {
 
 	keyword := c.Query("keyword")
 	vendor := c.Query("vendor")
+	hasIcon := c.Query("has_icon")
+	hasDescription := c.Query("has_description")
+	hasVendor := c.Query("has_vendor")
+	hasTags := c.Query("has_tags")
 	pageInfo := common.GetPageQuery(c)
 
-	modelsMeta, total, err := model.SearchModels(keyword, vendor, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	modelsMeta, total, err := model.SearchModels(keyword, vendor, hasIcon, hasDescription, hasVendor, hasTags, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 	if err != nil {
 		common.ApiError(c, err)
 		return

@@ -57,6 +57,10 @@ export const useModelsData = () => {
   const formInitValues = {
     searchKeyword: '',
     searchVendor: '',
+    hasIcon: '',
+    hasDescription: '',
+    hasVendor: '',
+    hasTags: '',
   };
 
   // ---------- helpers ----------
@@ -250,12 +254,31 @@ export const useModelsData = () => {
     }
   };
 
+  // Build filter query string from form values
+  const buildFilterParams = (formValues) => {
+    const { hasIcon = '', hasDescription = '', hasVendor = '', hasTags = '' } = formValues;
+    let params = '';
+    if (hasIcon) params += `&has_icon=${hasIcon}`;
+    if (hasDescription) params += `&has_description=${hasDescription}`;
+    if (hasVendor) params += `&has_vendor=${hasVendor}`;
+    if (hasTags) params += `&has_tags=${hasTags}`;
+    return params;
+  };
+
+  // Check if any filter is active
+  const hasActiveFilters = (formValues) => {
+    const { hasIcon = '', hasDescription = '', hasVendor = '', hasTags = '' } = formValues;
+    return hasIcon !== '' || hasDescription !== '' || hasVendor !== '' || hasTags !== '';
+  };
+
   // Search models with keyword and vendor
   const searchModels = async () => {
-    const { searchKeyword = '', searchVendor = '' } = getFormValues();
+    const formValues = getFormValues();
+    const { searchKeyword = '', searchVendor = '' } = formValues;
+    const filterParams = buildFilterParams(formValues);
 
-    if (searchKeyword === '' && searchVendor === '') {
-      // If keyword is blank, load models instead
+    if (searchKeyword === '' && searchVendor === '' && !hasActiveFilters(formValues)) {
+      // If no search criteria, load models instead
       await loadModels(1, pageSize);
       return;
     }
@@ -263,7 +286,7 @@ export const useModelsData = () => {
     setSearching(true);
     try {
       const res = await API.get(
-        `/api/models/search?keyword=${searchKeyword}&vendor=${searchVendor}&p=1&page_size=${pageSize}`,
+        `/api/models/search?keyword=${searchKeyword}&vendor=${searchVendor}${filterParams}&p=1&page_size=${pageSize}`,
       );
       const { success, message, data } = res.data;
       if (success) {

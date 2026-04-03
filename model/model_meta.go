@@ -135,7 +135,7 @@ func GetBoundChannelsByModelsMap(modelNames []string) (map[string][]BoundChannel
 	return result, nil
 }
 
-func SearchModels(keyword string, vendor string, offset int, limit int) ([]*Model, int64, error) {
+func SearchModels(keyword string, vendor string, hasIcon, hasDescription, hasVendor, hasTags string, offset int, limit int) ([]*Model, int64, error) {
 	var models []*Model
 	db := DB.Model(&Model{})
 	if keyword != "" {
@@ -148,6 +148,26 @@ func SearchModels(keyword string, vendor string, offset int, limit int) ([]*Mode
 		} else {
 			db = db.Joins("JOIN vendors ON vendors.id = models.vendor_id").Where("vendors.name LIKE ?", "%"+vendor+"%")
 		}
+	}
+	if hasIcon == "1" {
+		db = db.Where("models.icon != ''")
+	} else if hasIcon == "0" {
+		db = db.Where("models.icon = ''")
+	}
+	if hasDescription == "1" {
+		db = db.Where("models.description != ''")
+	} else if hasDescription == "0" {
+		db = db.Where("models.description = ''")
+	}
+	if hasVendor == "1" {
+		db = db.Where("models.vendor_id > 0")
+	} else if hasVendor == "0" {
+		db = db.Where("models.vendor_id = 0")
+	}
+	if hasTags == "1" {
+		db = db.Where("models.tags != ''")
+	} else if hasTags == "0" {
+		db = db.Where("models.tags = ''")
 	}
 	var total int64
 	if err := db.Count(&total).Error; err != nil {

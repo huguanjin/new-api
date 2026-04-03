@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { Form, Button } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
 
@@ -40,6 +40,12 @@ const ModelsFilters = ({
     }, 100);
   };
 
+  const filterOptions = useMemo(() => [
+    { value: '', label: t('不限') },
+    { value: '1', label: t('已设置') },
+    { value: '0', label: t('未设置') },
+  ], [t]);
+
   return (
     <Form
       initValues={formInitValues}
@@ -55,7 +61,7 @@ const ModelsFilters = ({
       stopValidateWithError={false}
       className='w-full md:w-auto order-1 md:order-2'
     >
-      <div className='flex flex-col md:flex-row items-center gap-2 w-full md:w-auto'>
+      <div className='flex flex-col md:flex-row flex-wrap items-center gap-2 w-full md:w-auto'>
         <div className='relative w-full md:w-56'>
           <Form.Input
             field='searchKeyword'
@@ -75,6 +81,50 @@ const ModelsFilters = ({
             showClear
             pure
             size='small'
+          />
+        </div>
+
+        <div className='w-full md:w-28'>
+          <Form.Select
+            field='hasIcon'
+            placeholder={t('图标')}
+            optionList={filterOptions}
+            size='small'
+            pure
+            showClear
+          />
+        </div>
+
+        <div className='w-full md:w-28'>
+          <Form.Select
+            field='hasDescription'
+            placeholder={t('描述')}
+            optionList={filterOptions}
+            size='small'
+            pure
+            showClear
+          />
+        </div>
+
+        <div className='w-full md:w-28'>
+          <Form.Select
+            field='hasVendor'
+            placeholder={t('供应商')}
+            optionList={filterOptions}
+            size='small'
+            pure
+            showClear
+          />
+        </div>
+
+        <div className='w-full md:w-28'>
+          <Form.Select
+            field='hasTags'
+            placeholder={t('标签')}
+            optionList={filterOptions}
+            size='small'
+            pure
+            showClear
           />
         </div>
 
