@@ -160,6 +160,95 @@ func DeleteModelMeta(c *gin.Context) {
 	common.ApiSuccess(c, nil)
 }
 
+// BatchConfigureModels 批量配置模型元数据（图标、描述、标签、供应商）
+func BatchConfigureModels(c *gin.Context) {
+	var req struct {
+		ModelNames  []string `json:"model_names"`
+		Icon        string   `json:"icon"`
+		Description string   `json:"description"`
+		Tags        string   `json:"tags"`
+		VendorID    *int     `json:"vendor_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if len(req.ModelNames) == 0 {
+		common.ApiErrorMsg(c, "模型名称列表不能为空")
+		return
+	}
+
+	// 构建需要更新的字段 map
+	updateFields := make(map[string]interface{})
+	if req.Icon != "" {
+		updateFields["icon"] = req.Icon
+	}
+	if req.Description != "" {
+		updateFields["description"] = req.Description
+	}
+	if req.Tags != "" {
+		updateFields["tags"] = req.Tags
+	}
+	if req.VendorID != nil {
+		updateFields["vendor_id"] = *req.VendorID
+	}
+
+	if len(updateFields) == 0 {
+		common.ApiErrorMsg(c, "至少需要填写一个配置字段")
+		return
+	}
+
+	createdCount := 0
+	updatedCount := 0
+
+	for _, name := range req.ModelNames {
+		if name == "" {
+			continue
+		}
+		var existing model.Model
+		err := model.DB.Where("model_name = ?", name).First(&existing).Error
+		if err == nil {
+			// 已存在 → 更新非空字段
+			updateFields["updated_time"] = common.GetTimestamp()
+			if err := model.DB.Model(&model.Model{}).Where("id = ?", existing.Id).Updates(updateFields).Error; err != nil {
+				continue
+			}
+			updatedCount++
+		} else {
+			// 不存在 → 创建新记录
+			newModel := model.Model{
+				ModelName:    name,
+				NameRule:     model.NameRuleExact,
+				Status:       1,
+				SyncOfficial: 1,
+			}
+			if req.Icon != "" {
+				newModel.Icon = req.Icon
+			}
+			if req.Description != "" {
+				newModel.Description = req.Description
+			}
+			if req.Tags != "" {
+				newModel.Tags = req.Tags
+			}
+			if req.VendorID != nil {
+				newModel.VendorID = *req.VendorID
+			}
+			if err := newModel.Insert(); err != nil {
+				continue
+			}
+			createdCount++
+		}
+	}
+
+	model.RefreshPricing()
+	common.ApiSuccess(c, gin.H{
+		"created_count": createdCount,
+		"updated_count": updatedCount,
+		"total":         len(req.ModelNames),
+	})
+}
+
 // enrichModels 批量填充附加信息：端点、渠道、分组、计费类型，避免 N+1 查询
 func enrichModels(models []*model.Model) {
 	if len(models) == 0 {

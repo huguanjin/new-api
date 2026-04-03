@@ -26,6 +26,8 @@ import {
   Typography,
   Empty,
   Input,
+  Space,
+  Tag,
 } from '@douyinfe/semi-ui';
 import {
   IllustrationNoResult,
@@ -36,11 +38,12 @@ import { API, showError } from '../../../../helpers';
 import { MODEL_TABLE_PAGE_SIZE } from '../../../../constants';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 
-const MissingModelsModal = ({ visible, onClose, onConfigureModel, t }) => {
+const MissingModelsModal = ({ visible, onClose, onConfigureModel, onBatchConfigure, t }) => {
   const [loading, setLoading] = useState(false);
   const [missingModels, setMissingModels] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const isMobile = useIsMobile();
 
   const fetchMissing = async () => {
@@ -63,8 +66,10 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, t }) => {
       fetchMissing();
       setSearchKeyword('');
       setCurrentPage(1);
+      setSelectedRowKeys([]);
     } else {
       setMissingModels([]);
+      setSelectedRowKeys([]);
     }
   }, [visible]);
 
@@ -109,6 +114,22 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, t }) => {
     },
   ];
 
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (keys) => setSelectedRowKeys(keys),
+    getCheckboxProps: (record) => ({
+      name: record.model,
+    }),
+  };
+
+  const handleSelectAll = () => {
+    if (selectedRowKeys.length === filteredModels.length) {
+      setSelectedRowKeys([]);
+    } else {
+      setSelectedRowKeys(filteredModels);
+    }
+  };
+
   return (
     <Modal
       title={
@@ -144,8 +165,43 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, t }) => {
           />
         ) : (
           <div className='missing-models-content'>
+            {/* 选择操作栏 */}
+            {selectedRowKeys.length > 0 && (
+              <div className='flex items-center justify-between gap-2 w-full mb-3 p-2 rounded-lg bg-[var(--semi-color-primary-light-default)]'>
+                <Space>
+                  <Tag color='blue' size='large'>
+                    {t('已选择')} {selectedRowKeys.length} {t('个模型')}
+                  </Tag>
+                  <Button
+                    size='small'
+                    type='tertiary'
+                    onClick={() => setSelectedRowKeys([])}
+                  >
+                    {t('取消选择')}
+                  </Button>
+                </Space>
+                <Button
+                  type='primary'
+                  size='small'
+                  theme='solid'
+                  onClick={() => onBatchConfigure?.(selectedRowKeys)}
+                >
+                  {t('批量配置')} ({selectedRowKeys.length})
+                </Button>
+              </div>
+            )}
+
             {/* 搜索框 */}
-            <div className='flex items-center justify-end gap-2 w-full mb-4'>
+            <div className='flex items-center justify-between gap-2 w-full mb-4'>
+              <Button
+                size='small'
+                type='tertiary'
+                onClick={handleSelectAll}
+              >
+                {selectedRowKeys.length === filteredModels.length && filteredModels.length > 0
+                  ? t('取消全选')
+                  : t('全选')}
+              </Button>
               <Input
                 placeholder={t('搜索模型...')}
                 value={searchKeyword}
@@ -164,6 +220,7 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, t }) => {
               <Table
                 columns={columns}
                 dataSource={dataSource}
+                rowSelection={rowSelection}
                 pagination={{
                   currentPage: currentPage,
                   pageSize: MODEL_TABLE_PAGE_SIZE,

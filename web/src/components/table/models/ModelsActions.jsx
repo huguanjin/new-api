@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useState } from 'react';
 import MissingModelsModal from './modals/MissingModelsModal';
+import BatchConfigureModelsModal from './modals/BatchConfigureModelsModal';
 import PrefillGroupManagement from './modals/PrefillGroupManagement';
 import EditPrefillGroupModal from './modals/EditPrefillGroupModal';
 import { Button, Modal, Popover, RadioGroup, Radio } from '@douyinfe/semi-ui';
@@ -41,11 +42,14 @@ const ModelsActions = ({
   applyUpstreamOverwrite,
   compactMode,
   setCompactMode,
+  refresh,
   t,
 }) => {
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMissingModal, setShowMissingModal] = useState(false);
+  const [showBatchConfigure, setShowBatchConfigure] = useState(false);
+  const [batchConfigureModels, setBatchConfigureModels] = useState([]);
   const [showGroupManagement, setShowGroupManagement] = useState(false);
   const [showAddPrefill, setShowAddPrefill] = useState(false);
   const [prefillInit, setPrefillInit] = useState({ id: undefined });
@@ -223,6 +227,21 @@ const ModelsActions = ({
           setEditingModel({ id: undefined, model_name: name });
           setShowEdit(true);
           setShowMissingModal(false);
+        }}
+        onBatchConfigure={(models) => {
+          setBatchConfigureModels(models);
+          setShowBatchConfigure(true);
+        }}
+        t={t}
+      />
+
+      <BatchConfigureModelsModal
+        visible={showBatchConfigure}
+        onClose={() => setShowBatchConfigure(false)}
+        selectedModels={batchConfigureModels}
+        onSuccess={() => {
+          setShowMissingModal(false);
+          refresh?.();
         }}
         t={t}
       />
