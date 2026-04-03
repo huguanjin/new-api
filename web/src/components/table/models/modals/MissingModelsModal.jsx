@@ -42,7 +42,6 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, onBatchConfigu
   const [loading, setLoading] = useState(false);
   const [missingModels, setMissingModels] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const isMobile = useIsMobile();
 
@@ -65,7 +64,6 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, onBatchConfigu
     if (visible) {
       fetchMissing();
       setSearchKeyword('');
-      setCurrentPage(1);
       setSelectedRowKeys([]);
     } else {
       setMissingModels([]);
@@ -73,19 +71,15 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, onBatchConfigu
     }
   }, [visible]);
 
-  // 过滤和分页逻辑
+  // 过滤逻辑
   const filteredModels = missingModels.filter((model) =>
     model.toLowerCase().includes(searchKeyword.toLowerCase()),
   );
 
-  const dataSource = (() => {
-    const start = (currentPage - 1) * MODEL_TABLE_PAGE_SIZE;
-    const end = start + MODEL_TABLE_PAGE_SIZE;
-    return filteredModels.slice(start, end).map((model) => ({
-      model,
-      key: model,
-    }));
-  })();
+  const dataSource = filteredModels.map((model) => ({
+    model,
+    key: model,
+  }));
 
   const columns = [
     {
@@ -205,10 +199,7 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, onBatchConfigu
               <Input
                 placeholder={t('搜索模型...')}
                 value={searchKeyword}
-                onChange={(v) => {
-                  setSearchKeyword(v);
-                  setCurrentPage(1);
-                }}
+                onChange={(v) => setSearchKeyword(v)}
                 className='!w-full'
                 prefix={<IconSearch />}
                 showClear
@@ -222,11 +213,8 @@ const MissingModelsModal = ({ visible, onClose, onConfigureModel, onBatchConfigu
                 dataSource={dataSource}
                 rowSelection={rowSelection}
                 pagination={{
-                  currentPage: currentPage,
                   pageSize: MODEL_TABLE_PAGE_SIZE,
-                  total: filteredModels.length,
                   showSizeChanger: false,
-                  onPageChange: (page) => setCurrentPage(page),
                 }}
               />
             ) : (
