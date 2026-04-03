@@ -281,27 +281,22 @@ const InvitationCard = ({
               </Text>
             </div>
 
-            <div className='flex items-start gap-2'>
-              <Badge dot type='success' />
-              <Text type='tertiary' className='text-sm'>
-                {t('邀请的好友订阅套餐后，您可获得现金返利，可申请提现或划转至余额')}
-              </Text>
-            </div>
-
-            <div className='flex items-start gap-2'>
-              <Badge dot type='success' />
-              <Text type='tertiary' className='text-sm'>
-                {t('返利金额 = 好友订阅支付金额 × 返利比例，返利到账后可申请提现至支付宝或划转至账户余额')}
-              </Text>
-            </div>
-
             {commissionRate > 0 && (
-              <div className='flex items-start gap-2'>
-                <Badge dot type='warning' />
-                <Text type='tertiary' className='text-sm'>
-                  {t('当前订阅返利比例为') + ` ${(commissionRate * 100).toFixed(0)}%`}
-                </Text>
-              </div>
+              <>
+                <div className='flex items-start gap-2'>
+                  <Badge dot type='success' />
+                  <Text type='tertiary' className='text-sm'>
+                    {t('邀请的好友订阅套餐后，您可获得现金返利，可申请提现或划转至余额')}
+                  </Text>
+                </div>
+
+                <div className='flex items-start gap-2'>
+                  <Badge dot type='success' />
+                  <Text type='tertiary' className='text-sm'>
+                    {t('返利金额 = 好友订阅支付金额 × {{rate}}，返利到账后可申请提现至支付宝或划转至账户余额', { rate: (commissionRate * 100).toFixed(0) + '%' })}
+                  </Text>
+                </div>
+              </>
             )}
 
             <div className='flex items-start gap-2'>
