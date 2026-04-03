@@ -106,6 +106,12 @@ const ModelsActions = ({
     setShowAddPrefill(true);
   };
 
+  const handleBatchEdit = () => {
+    const names = selectedKeys.map((m) => m.model_name);
+    setBatchConfigureModels(names);
+    setShowBatchConfigure(true);
+  };
+
   return (
     <>
       <div className='flex flex-wrap gap-2 w-full md:w-auto order-2 md:order-1'>
@@ -188,6 +194,7 @@ const ModelsActions = ({
         t={t}
         onDelete={handleDeleteSelectedModels}
         onAddPrefill={handleAddToPrefill}
+        onBatchEdit={handleBatchEdit}
         onClear={handleClearSelected}
         onCopy={handleCopyNames}
       />

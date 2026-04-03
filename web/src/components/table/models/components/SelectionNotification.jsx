@@ -33,6 +33,7 @@ const SelectionNotification = ({
   t,
   onDelete,
   onAddPrefill,
+  onBatchEdit,
   onClear,
   onCopy,
 }) => {
@@ -63,6 +64,9 @@ const SelectionNotification = ({
           >
             {t('加入预填组')}
           </Button>
+          <Button size='small' type='primary' theme='solid' onClick={onBatchEdit}>
+            {t('批量更改')}
+          </Button>
           <Button size='small' type='secondary' theme='solid' onClick={onCopy}>
             {t('复制名称')}
           </Button>
@@ -85,7 +89,7 @@ const SelectionNotification = ({
       // 取消全部勾选时关闭通知
       Notification.close(NOTICE_ID);
     }
-  }, [selectedKeys, t, onDelete, onAddPrefill, onClear, onCopy]);
+  }, [selectedKeys, t, onDelete, onAddPrefill, onBatchEdit, onClear, onCopy]);
 
   // 卸载时确保关闭通知
   useEffect(() => {
