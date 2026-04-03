@@ -227,9 +227,18 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "message": ""
+  "message": "",
+  "data": {
+    "id": 15
+  }
 }
 ```
+
+**响应字段说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `data.id` | int | 新创建用户的 ID |
 
 ---
 

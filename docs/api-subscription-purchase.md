@@ -278,6 +278,21 @@ GET /api/subscription/self
 
 **权限：** UserAuth
 
+**cURL 示例（系统访问令牌）：**
+
+```bash
+curl -X GET https://your-domain.com/api/subscription/self \
+  -H "Authorization: Bearer your_access_token_here" \
+  -H "New-Api-User: 10"
+```
+
+**cURL 示例（Session Cookie）：**
+
+```bash
+curl -X GET https://your-domain.com/api/subscription/self \
+  -b cookies.txt
+```
+
 **成功响应：**
 
 ```json
