@@ -98,6 +98,7 @@ const AddEditSubscriptionModal = ({
     stripe_price_id: '',
     creem_product_id: '',
     rpm_limit: 0,
+    daily_call_limit: 0,
   });
 
   const buildFormValues = () => {
@@ -125,6 +126,7 @@ const AddEditSubscriptionModal = ({
       stripe_price_id: p.stripe_price_id || '',
       creem_product_id: p.creem_product_id || '',
       rpm_limit: Number(p.rpm_limit || 0),
+      daily_call_limit: Number(p.daily_call_limit || 0),
     };
   };
 
@@ -167,6 +169,7 @@ const AddEditSubscriptionModal = ({
           total_amount: displayAmountToQuota(values.total_amount),
           upgrade_group: values.upgrade_group || '',
           rpm_limit: Number(values.rpm_limit || 0),
+          daily_call_limit: Number(values.daily_call_limit || 0),
         },
       };
       if (editingPlan?.plan?.id) {
@@ -381,6 +384,17 @@ const AddEditSubscriptionModal = ({
                         min={0}
                         precision={0}
                         extraText={t('每分钟请求数限制，0 表示不限')}
+                        style={{ width: '100%' }}
+                      />
+                    </Col>
+
+                    <Col span={12}>
+                      <Form.InputNumber
+                        field='daily_call_limit'
+                        label={t('每日调用上限')}
+                        min={0}
+                        precision={0}
+                        extraText={t('每日成功调用次数上限，0 表示不限')}
                         style={{ width: '100%' }}
                       />
                     </Col>

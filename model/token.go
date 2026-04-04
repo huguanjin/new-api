@@ -479,3 +479,72 @@ func BatchInsertTokens(tokens []*Token) error {
 		return nil
 	})
 }
+
+// TokenWithUser extends Token with the owner's username for admin views.
+type TokenWithUser struct {
+	Token
+	Username string `json:"username" gorm:"column:username"`
+}
+
+// AdminSearchTokens searches tokens across all users with optional filters.
+// creatorId > 0 restricts results to tokens owned by users created by creatorId.
+func AdminSearchTokens(keyword string, tokenKey string, userIdFilter int, status int, group string, creatorId int, offset int, limit int) (tokens []*TokenWithUser, total int64, err error) {
+	if limit <= 0 || limit > searchHardLimit {
+		limit = searchHardLimit
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	baseQuery := DB.Model(&Token{}).
+		Select("tokens.*, users.username as username").
+		Joins("LEFT JOIN users ON tokens.user_id = users.id")
+
+	// Non-root admin: only see tokens of users they created
+	if creatorId > 0 {
+		baseQuery = baseQuery.Where("users.creator_id = ?", creatorId)
+	}
+
+	if keyword != "" {
+		keywordPattern, err := sanitizeLikePattern(keyword)
+		if err != nil {
+			return nil, 0, err
+		}
+		baseQuery = baseQuery.Where("tokens.name LIKE ? ESCAPE '!'", keywordPattern)
+	}
+
+	if tokenKey != "" {
+		tokenKey = strings.TrimPrefix(tokenKey, "sk-")
+		tokenPattern, err := sanitizeLikePattern(tokenKey)
+		if err != nil {
+			return nil, 0, err
+		}
+		baseQuery = baseQuery.Where("tokens."+commonKeyCol+" LIKE ? ESCAPE '!'", tokenPattern)
+	}
+
+	if userIdFilter > 0 {
+		baseQuery = baseQuery.Where("tokens.user_id = ?", userIdFilter)
+	}
+
+	if status >= 0 {
+		baseQuery = baseQuery.Where("tokens.status = ?", status)
+	}
+
+	if group != "" {
+		baseQuery = baseQuery.Where("tokens."+commonGroupCol+" = ?", group)
+	}
+
+	// Soft-delete filter: only non-deleted tokens
+	baseQuery = baseQuery.Where("tokens.deleted_at IS NULL")
+
+	err = baseQuery.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = baseQuery.Order("tokens.id desc").Offset(offset).Limit(limit).Find(&tokens).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return tokens, total, nil
+}

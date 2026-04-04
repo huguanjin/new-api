@@ -97,6 +97,12 @@ const renderPlanTitle = (text, record, t) => {
             ? plan.max_purchase_per_user
             : t('不限')}
         </Text>
+        <Text type='tertiary'>{t('每日调用上限')}</Text>
+        <Text>
+          {plan?.daily_call_limit > 0
+            ? plan.daily_call_limit
+            : t('不限')}
+        </Text>
         <Text type='tertiary'>{t('有效期')}</Text>
         <Text>{formatDuration(plan, t)}</Text>
         <Text type='tertiary'>{t('重置')}</Text>
@@ -306,6 +312,18 @@ export const getSubscriptionsColumns = ({
       title: t('购买上限'),
       width: 90,
       render: (text, record) => renderPurchaseLimit(text, record, t),
+    },
+    {
+      title: t('每日调用上限'),
+      width: 110,
+      render: (text, record) => {
+        const limit = Number(record?.plan?.daily_call_limit || 0);
+        return (
+          <Text type={limit > 0 ? 'secondary' : 'tertiary'}>
+            {limit > 0 ? limit : t('不限')}
+          </Text>
+        );
+      },
     },
     {
       title: t('优先级'),

@@ -52,6 +52,7 @@ const routerMap = {
   playground: '/console/playground',
   personal: '/console/personal',
   batch_user: '/console/batch-user',
+  admin_token: '/console/admin-token',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -195,6 +196,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('提现审核'),
         itemKey: 'withdrawal',
         to: '/withdrawal',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('令牌查询'),
+        itemKey: 'admin_token',
+        to: '/console/admin-token',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {

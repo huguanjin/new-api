@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -20,7 +21,78 @@ import (
 const (
 	ModelRequestRateLimitCountMark        = "MRRL"
 	ModelRequestRateLimitSuccessCountMark = "MRRLS"
+	DailyCallLimitKeyPrefix               = "dailyCallLimit:"
 )
+
+// --- Daily call limit (in-memory fallback) ---
+
+type dailyCallEntry struct {
+	Date  string
+	Count int
+}
+
+var (
+	dailyCallMemStore sync.Map // key: userId string -> *dailyCallEntry
+)
+
+// getDailyCallCountRedis returns current daily successful call count for user from Redis.
+func getDailyCallCountRedis(ctx context.Context, rdb *redis.Client, userId string) (int, error) {
+	key := DailyCallLimitKeyPrefix + userId
+	val, err := rdb.Get(ctx, key).Int()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	return val, err
+}
+
+// incrDailyCallCountRedis increments the daily successful call count for user in Redis.
+// Sets expiry to the end of the current UTC day if the key is new.
+func incrDailyCallCountRedis(ctx context.Context, rdb *redis.Client, userId string) {
+	key := DailyCallLimitKeyPrefix + userId
+	val, err := rdb.Incr(ctx, key).Result()
+	if err != nil {
+		return
+	}
+	// If this is the first increment (val == 1), set TTL to end of UTC day
+	if val == 1 {
+		now := time.Now().UTC()
+		endOfDay := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.UTC)
+		rdb.ExpireAt(ctx, key, endOfDay)
+	}
+}
+
+// getDailyCallCountMemory returns current daily successful call count for user from in-memory store.
+func getDailyCallCountMemory(userId string) int {
+	today := time.Now().UTC().Format("2006-01-02")
+	v, ok := dailyCallMemStore.Load(userId)
+	if !ok {
+		return 0
+	}
+	entry := v.(*dailyCallEntry)
+	if entry.Date != today {
+		return 0
+	}
+	return entry.Count
+}
+
+// incrDailyCallCountMemory increments the daily successful call count for user in in-memory store.
+func incrDailyCallCountMemory(userId string) {
+	today := time.Now().UTC().Format("2006-01-02")
+	for {
+		v, loaded := dailyCallMemStore.LoadOrStore(userId, &dailyCallEntry{Date: today, Count: 1})
+		if !loaded {
+			return
+		}
+		entry := v.(*dailyCallEntry)
+		if entry.Date != today {
+			// Day changed, reset
+			dailyCallMemStore.Store(userId, &dailyCallEntry{Date: today, Count: 1})
+			return
+		}
+		entry.Count++
+		return
+	}
+}
 
 // 检查Redis中的请求限制
 func checkRedisRateLimit(ctx context.Context, rdb *redis.Client, key string, maxCount int, duration int64) (bool, error) {
@@ -160,6 +232,62 @@ func memoryRateLimitHandler(duration int64, totalMaxCount, successMaxCount int) 
 		// 4. 如果请求成功，记录到实际的成功请求计数中
 		if c.Writer.Status() < 400 {
 			inMemoryRateLimiter.Request(successKey, successMaxCount, duration)
+		}
+	}
+}
+
+// SubscriptionDailyCallLimit checks daily call limits from user subscriptions.
+// It runs as a separate middleware concern, independent of RPM rate limiting.
+// Only counts successful calls (HTTP status < 400).
+func SubscriptionDailyCallLimit() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		userId := c.GetInt("id")
+		if userId <= 0 {
+			c.Next()
+			return
+		}
+
+		dailyLimit := model.GetUserActiveSubscriptionDailyCallLimit(userId)
+		if dailyLimit <= 0 {
+			// No daily call limit configured, skip
+			c.Next()
+			return
+		}
+
+		userIdStr := strconv.Itoa(userId)
+
+		// Check current daily count
+		var currentCount int
+		if common.RedisEnabled {
+			ctx := context.Background()
+			var err error
+			currentCount, err = getDailyCallCountRedis(ctx, common.RDB, userIdStr)
+			if err != nil {
+				fmt.Println("检查每日调用限制失败:", err.Error())
+				c.Next()
+				return
+			}
+		} else {
+			currentCount = getDailyCallCountMemory(userIdStr)
+		}
+
+		if currentCount >= dailyLimit {
+			abortWithOpenAiMessage(c, http.StatusTooManyRequests,
+				fmt.Sprintf("您已达到每日调用次数上限：%d次", dailyLimit))
+			return
+		}
+
+		// Process request
+		c.Next()
+
+		// Only increment counter on success
+		if c.Writer.Status() < 400 {
+			if common.RedisEnabled {
+				ctx := context.Background()
+				incrDailyCallCountRedis(ctx, common.RDB, userIdStr)
+			} else {
+				incrDailyCallCountMemory(userIdStr)
+			}
 		}
 	}
 }

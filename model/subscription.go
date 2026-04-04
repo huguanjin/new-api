@@ -178,6 +178,9 @@ type SubscriptionPlan struct {
 	// RPM (requests per minute) limit for this plan (0 = no limit, use default/group config)
 	RpmLimit int `json:"rpm_limit" gorm:"type:int;not null;default:0"`
 
+	// Daily call limit for this plan (0 = no limit, only count successful calls)
+	DailyCallLimit int `json:"daily_call_limit" gorm:"type:int;not null;default:0"`
+
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
 }
@@ -255,6 +258,9 @@ type UserSubscription struct {
 
 	// RPM limit snapshot from plan at purchase time (0 = no limit)
 	RpmLimit int `json:"rpm_limit" gorm:"type:int;not null;default:0"`
+
+	// Daily call limit snapshot from plan at purchase time (0 = no limit)
+	DailyCallLimit int `json:"daily_call_limit" gorm:"type:int;not null;default:0"`
 
 	// Order payment amount (CNY), 0 for admin-granted subscriptions
 	OrderMoney float64 `json:"order_money" gorm:"type:decimal(10,2);default:0"`
@@ -504,10 +510,11 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		Source:        source,
 		LastResetTime: lastReset,
 		NextResetTime: nextReset,
-		UpgradeGroup:  upgradeGroup,
-		PrevUserGroup: prevGroup,
-		RpmLimit:      plan.RpmLimit,
-		OrderMoney:    orderMoney,
+		UpgradeGroup:   upgradeGroup,
+		PrevUserGroup:  prevGroup,
+		RpmLimit:       plan.RpmLimit,
+		DailyCallLimit: plan.DailyCallLimit,
+		OrderMoney:     orderMoney,
 		CreatedAt:     common.GetTimestamp(),
 		UpdatedAt:     common.GetTimestamp(),
 	}
@@ -1487,4 +1494,27 @@ func GetUserActiveSubscriptionRpmLimit(userId int) int {
 		}
 	}
 	return totalRpm
+}
+
+// GetUserActiveSubscriptionDailyCallLimit returns the sum of daily call limits from all active subscriptions for a user.
+// This allows users with multiple subscriptions to have their daily call limits stacked.
+// Returns 0 if no active subscription with daily call limit, or user has no active subscription.
+func GetUserActiveSubscriptionDailyCallLimit(userId int) int {
+	if userId <= 0 {
+		return 0
+	}
+	now := common.GetTimestamp()
+	var subs []UserSubscription
+	if err := DB.Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Select("daily_call_limit").
+		Find(&subs).Error; err != nil {
+		return 0
+	}
+	total := 0
+	for _, sub := range subs {
+		if sub.DailyCallLimit > 0 {
+			total += sub.DailyCallLimit
+		}
+	}
+	return total
 }

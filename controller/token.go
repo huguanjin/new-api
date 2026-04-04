@@ -390,3 +390,39 @@ func GetUserTokensByAdmin(c *gin.Context) {
 		"data":    tokens,
 	})
 }
+
+// AdminSearchTokens allows admins to search tokens across all users.
+func AdminSearchTokens(c *gin.Context) {
+	keyword := c.Query("keyword")
+	tokenKey := c.Query("token")
+	status := -1 // -1 means no filter
+	if statusStr := c.Query("status"); statusStr != "" {
+		if s, err := strconv.Atoi(statusStr); err == nil {
+			status = s
+		}
+	}
+	userIdFilter := 0
+	if userIdStr := c.Query("user_id"); userIdStr != "" {
+		if uid, err := strconv.Atoi(userIdStr); err == nil {
+			userIdFilter = uid
+		}
+	}
+	group := c.Query("group")
+
+	myId := c.GetInt("id")
+	myRole := c.GetInt("role")
+	creatorId := 0
+	if myRole != common.RoleRootUser {
+		creatorId = myId
+	}
+
+	pageInfo := common.GetPageQuery(c)
+	tokens, total, err := model.AdminSearchTokens(keyword, tokenKey, userIdFilter, status, group, creatorId, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(tokens)
+	common.ApiSuccess(c, pageInfo)
+}
