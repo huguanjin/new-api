@@ -291,11 +291,13 @@ Content-Type: application/json
   "success": true,
   "data": [
     {
+      "id": 15,
       "username": "cust1",
       "password": "defaultPass123",
       "token_key": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     },
     {
+      "id": 16,
       "username": "cust2",
       "password": "defaultPass123",
       "token_key": "sk-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
@@ -303,6 +305,15 @@ Content-Type: application/json
   ]
 }
 ```
+
+**响应字段说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | int | 新创建用户的 ID |
+| `username` | string | 生成的用户名 |
+| `password` | string | 用户密码 |
+| `token_key` | string | 自动生成的 API 令牌 |
 
 > **提示：** 批量创建是唯一能同时创建用户和 API 令牌的接口，建议用于批量对接场景。
 

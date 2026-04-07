@@ -1204,6 +1204,7 @@ type BatchCreateUsersRequest struct {
 }
 
 type BatchCreateUserResult struct {
+	Id       int    `json:"id"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 	TokenKey string `json:"token_key"`
@@ -1361,6 +1362,7 @@ func BatchCreateUsers(c *gin.Context) {
 			Status:         common.TokenStatusEnabled,
 		}
 		results[i] = BatchCreateUserResult{
+			Id:       users[i].Id,
 			Username: usernames[i],
 			Password: req.Password,
 			TokenKey: key,
