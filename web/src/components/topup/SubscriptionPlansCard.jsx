@@ -463,6 +463,17 @@ const SubscriptionPlansCard = ({
                             </span>
                           )}
                         </div>
+                        <div className='text-xs text-gray-500 mb-2'>
+                          {t('RPM上限')}:{' '}
+                          {Number(subscription?.rpm_limit || 0) > 0
+                            ? subscription.rpm_limit
+                            : t('不限')}
+                          <span className='mx-2'>·</span>
+                          {t('每日调用上限')}:{' '}
+                          {Number(subscription?.daily_call_limit || 0) > 0
+                            ? subscription.daily_call_limit
+                            : t('不限')}
+                        </div>
                         {!isLast && <Divider margin={12} />}
                       </div>
                     );
@@ -507,6 +518,11 @@ const SubscriptionPlansCard = ({
                   rpmLimit > 0
                     ? `${t('RPM上限')}: ${rpmLimit}`
                     : `${t('RPM上限')}: ${t('不限')}`;
+                const dailyCallLimit = Number(plan?.daily_call_limit || 0);
+                const dailyCallLabel =
+                  dailyCallLimit > 0
+                    ? `${t('每日调用上限')}: ${dailyCallLimit}`
+                    : `${t('每日调用上限')}: ${t('不限')}`;
                 const planBenefits = [
                   {
                     label: `${t('有效期')}: ${formatSubscriptionDuration(plan, t)}`,
@@ -519,6 +535,7 @@ const SubscriptionPlansCard = ({
                       }
                     : { label: totalLabel },
                   { label: rpmLabel, tooltip: t('每分钟最大请求数') },
+                  { label: dailyCallLabel, tooltip: t('每日成功调用次数上限，0 表示不限') },
                   limitLabel ? { label: limitLabel } : null,
                   upgradeLabel ? { label: upgradeLabel } : null,
                 ].filter(Boolean);

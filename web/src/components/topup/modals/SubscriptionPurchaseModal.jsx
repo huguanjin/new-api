@@ -146,6 +146,26 @@ const SubscriptionPurchaseModal = ({
                   )}
                 </div>
               </div>
+              <div className='flex justify-between items-center'>
+                <Text strong className='text-slate-700 dark:text-slate-200'>
+                  {t('RPM上限')}：
+                </Text>
+                <Text className='text-slate-900 dark:text-slate-100'>
+                  {Number(plan?.rpm_limit || 0) > 0
+                    ? plan.rpm_limit
+                    : t('不限')}
+                </Text>
+              </div>
+              <div className='flex justify-between items-center'>
+                <Text strong className='text-slate-700 dark:text-slate-200'>
+                  {t('每日调用上限')}：
+                </Text>
+                <Text className='text-slate-900 dark:text-slate-100'>
+                  {Number(plan?.daily_call_limit || 0) > 0
+                    ? plan.daily_call_limit
+                    : t('不限')}
+                </Text>
+              </div>
               {plan?.upgrade_group ? (
                 <div className='flex justify-between items-center'>
                   <Text strong className='text-slate-700 dark:text-slate-200'>
