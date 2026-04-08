@@ -49,4 +49,13 @@ func SetVideoRouter(router *gin.Engine) {
 		// Maps to: /?Action=CVSync2AsyncSubmitTask&Version=2022-08-31 and /?Action=CVSync2AsyncGetResult&Version=2022-08-31
 		jimengOfficialGroup.POST("/", controller.RelayTask)
 	}
+
+	// Seedance asset management API routes
+	assetGroup := router.Group("/api/asset")
+	assetGroup.Use(middleware.RouteTag("relay"))
+	assetGroup.Use(middleware.TokenAuth())
+	{
+		assetGroup.POST("/createMedia", controller.AssetCreate)
+		assetGroup.GET("/get", controller.AssetGet)
+	}
 }

@@ -37,6 +37,7 @@ import (
 	taskhubagi "github.com/QuantumNous/new-api/relay/channel/task/hubagi"
 	taskjimeng "github.com/QuantumNous/new-api/relay/channel/task/jimeng"
 	"github.com/QuantumNous/new-api/relay/channel/task/kling"
+	taskseedance "github.com/QuantumNous/new-api/relay/channel/task/seedance"
 	tasksora "github.com/QuantumNous/new-api/relay/channel/task/sora"
 	"github.com/QuantumNous/new-api/relay/channel/task/suno"
 	taskvertex "github.com/QuantumNous/new-api/relay/channel/task/vertex"
@@ -162,6 +163,8 @@ func GetTaskAdaptor(platform constant.TaskPlatform) channel.TaskAdaptor {
 			return &hailuo.TaskAdaptor{}
 		case constant.ChannelTypeHUBAGI:
 			return &taskhubagi.TaskAdaptor{}
+		case constant.ChannelTypeSeedance:
+			return &taskseedance.TaskAdaptor{}
 		}
 	}
 	return nil

@@ -194,6 +194,11 @@ export const CHANNEL_OPTIONS = [
     color: 'purple',
     label: 'HUBAGI',
   },
+  {
+    value: 59,
+    color: 'teal',
+    label: 'Seedance',
+  },
 ];
 
 export const MODEL_TABLE_PAGE_SIZE = 10;
