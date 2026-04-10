@@ -332,6 +332,15 @@ func SetApiRouter(router *gin.Engine) {
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
 		}
 
+		paintingRoute := apiRouter.Group("/painting")
+		paintingRoute.Use(middleware.UserAuth())
+		{
+			paintingRoute.POST("/images", controller.SavePaintingImage)
+			paintingRoute.GET("/images", controller.GetPaintingImages)
+			paintingRoute.GET("/images/:id/file", controller.GetPaintingImageFile)
+			paintingRoute.DELETE("/images/:id", controller.DeletePaintingImage)
+		}
+
 		vendorRoute := apiRouter.Group("/vendors")
 		vendorRoute.Use(middleware.AdminAuth())
 		{

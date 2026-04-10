@@ -135,6 +135,9 @@ func main() {
 		model.InitBatchUpdater()
 	}
 
+	// Start painting image cleanup task (48h TTL)
+	controller.StartPaintingCleanupTask()
+
 	if os.Getenv("ENABLE_PPROF") == "true" {
 		pprofPort := os.Getenv("PPROF_PORT")
 		if pprofPort == "" {

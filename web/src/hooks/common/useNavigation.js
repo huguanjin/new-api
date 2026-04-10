@@ -25,6 +25,7 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
     const defaultModules = {
       home: true,
       console: true,
+      painting: true,
       pricing: true,
       docs: true,
       about: true,
@@ -43,6 +44,11 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
         text: t('控制台'),
         itemKey: 'console',
         to: '/console',
+      },
+      {
+        text: t('绘画'),
+        itemKey: 'painting',
+        to: '/painting',
       },
       {
         text: t('模型广场'),
@@ -76,6 +82,10 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
         return typeof modules.pricing === 'object'
           ? modules.pricing.enabled
           : modules.pricing;
+      }
+      // painting defaults to true if not specified in backend config
+      if (link.itemKey === 'painting') {
+        return modules[link.itemKey] !== false;
       }
       return modules[link.itemKey] === true;
     });
