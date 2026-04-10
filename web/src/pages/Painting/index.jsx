@@ -87,7 +87,7 @@ function formatTimeLeft(expiresAt) {
 export default function Painting() {
   const { t } = useTranslation();
   const { generate, loading: generating, result, error: genError, reset } = usePaintingGenerate();
-  const { images: galleryImages, loading: galleryLoading, saveImage, deleteImage, getImageUrl, fetchImages } = usePaintingGallery();
+  const { images: galleryImages, loading: galleryLoading, blobUrls, saveImage, deleteImage, fetchImageBlob, fetchImages } = usePaintingGallery();
 
   // State
   const [model, setModel] = useState(MODELS[0].value);
@@ -203,14 +203,16 @@ export default function Painting() {
   }, [deleteImage, t]);
 
   // Download gallery image
-  const handleDownloadGallery = useCallback((image) => {
+  const handleDownloadGallery = useCallback(async (image) => {
+    const url = blobUrls[image.id] || await fetchImageBlob(image.id);
+    if (!url) return;
     const link = document.createElement('a');
-    link.href = getImageUrl(image.id);
+    link.href = url;
     link.download = `painting-${image.id}.${image.mime_type.split('/')[1] || 'png'}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [getImageUrl]);
+  }, [blobUrls, fetchImageBlob]);
 
   return (
     <div style={{ padding: '20px 24px 24px', maxWidth: 1400, margin: '0 auto', minHeight: 'calc(100vh - 120px)' }}>
@@ -485,15 +487,21 @@ export default function Painting() {
                 <Card
                   key={image.id}
                   cover={
-                    <img
-                      src={getImageUrl(image.id)}
-                      alt={image.prompt || 'Painting'}
-                      style={{ width: '100%', height: 220, objectFit: 'cover', cursor: 'pointer' }}
-                      onClick={() => {
-                        setPreviewSrc(getImageUrl(image.id));
-                        setPreviewVisible(true);
-                      }}
-                    />
+                    blobUrls[image.id] ? (
+                      <img
+                        src={blobUrls[image.id]}
+                        alt={image.prompt || 'Painting'}
+                        style={{ width: '100%', height: 220, objectFit: 'cover', cursor: 'pointer' }}
+                        onClick={() => {
+                          setPreviewSrc(blobUrls[image.id]);
+                          setPreviewVisible(true);
+                        }}
+                      />
+                    ) : (
+                      <div style={{ width: '100%', height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--semi-color-fill-0)' }}>
+                        <Spin />
+                      </div>
+                    )
                   }
                   bodyStyle={{ padding: '12px 16px' }}
                 >
