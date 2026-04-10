@@ -17,9 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useRef, useMemo } from 'react';
-import { Form, Button } from '@douyinfe/semi-ui';
-import { IconSearch } from '@douyinfe/semi-icons';
+import React, { useRef, useMemo, useState, useCallback } from 'react';
+import { Form, Button, Popover, Tag, Space } from '@douyinfe/semi-ui';
+import { IconSearch, IconFilter } from '@douyinfe/semi-icons';
 
 const ModelsFilters = ({
   formInitValues,
@@ -29,12 +29,46 @@ const ModelsFilters = ({
   searching,
   t,
 }) => {
-  // Handle form reset and immediate search
   const formApiRef = useRef(null);
+  const [popoverVisible, setPopoverVisible] = useState(false);
+
+  // Count how many filter fields are actively set
+  const [activeFilterCount, setActiveFilterCount] = useState(0);
+
+  const updateFilterCount = useCallback(() => {
+    if (!formApiRef.current) return;
+    const values = formApiRef.current.getValues();
+    let count = 0;
+    if (values.hasIcon && values.hasIcon !== '') count++;
+    if (values.hasDescription && values.hasDescription !== '') count++;
+    if (values.hasVendor && values.hasVendor !== '') count++;
+    if (values.hasTags && values.hasTags !== '') count++;
+    setActiveFilterCount(count);
+  }, []);
 
   const handleReset = () => {
     if (!formApiRef.current) return;
     formApiRef.current.reset();
+    setActiveFilterCount(0);
+    setTimeout(() => {
+      searchModels();
+    }, 100);
+  };
+
+  const handleFilterApply = () => {
+    updateFilterCount();
+    setPopoverVisible(false);
+    searchModels();
+  };
+
+  const handleFilterReset = () => {
+    if (!formApiRef.current) return;
+    formApiRef.current.setValue('hasIcon', '');
+    formApiRef.current.setValue('hasDescription', '');
+    formApiRef.current.setValue('hasVendor', '');
+    formApiRef.current.setValue('hasTags', '');
+    setActiveFilterCount(0);
+    setPopoverVisible(false);
     setTimeout(() => {
       searchModels();
     }, 100);
@@ -45,6 +79,65 @@ const ModelsFilters = ({
     { value: '1', label: t('已设置') },
     { value: '0', label: t('未设置') },
   ], [t]);
+
+  const filterPopoverContent = (
+    <div style={{ padding: 12, width: 280 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13, color: 'var(--semi-color-text-1)' }}>{t('图标')}</div>
+          <Form.Select
+            field='hasIcon'
+            optionList={filterOptions}
+            size='small'
+            pure
+            showClear
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13, color: 'var(--semi-color-text-1)' }}>{t('描述')}</div>
+          <Form.Select
+            field='hasDescription'
+            optionList={filterOptions}
+            size='small'
+            pure
+            showClear
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13, color: 'var(--semi-color-text-1)' }}>{t('供应商')}</div>
+          <Form.Select
+            field='hasVendor'
+            optionList={filterOptions}
+            size='small'
+            pure
+            showClear
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13, color: 'var(--semi-color-text-1)' }}>{t('标签')}</div>
+          <Form.Select
+            field='hasTags'
+            optionList={filterOptions}
+            size='small'
+            pure
+            showClear
+            style={{ width: '100%' }}
+          />
+        </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+        <Button size='small' type='tertiary' onClick={handleFilterReset}>
+          {t('重置')}
+        </Button>
+        <Button size='small' theme='solid' onClick={handleFilterApply}>
+          {t('应用')}
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <Form
@@ -84,49 +177,23 @@ const ModelsFilters = ({
           />
         </div>
 
-        <div className='w-full md:w-28'>
-          <Form.Select
-            field='hasIcon'
-            placeholder={t('图标')}
-            optionList={filterOptions}
+        <Popover
+          visible={popoverVisible}
+          onVisibleChange={setPopoverVisible}
+          content={filterPopoverContent}
+          trigger='click'
+          position='bottomLeft'
+          showArrow
+        >
+          <Button
+            icon={<IconFilter />}
+            type='tertiary'
             size='small'
-            pure
-            showClear
-          />
-        </div>
-
-        <div className='w-full md:w-28'>
-          <Form.Select
-            field='hasDescription'
-            placeholder={t('描述')}
-            optionList={filterOptions}
-            size='small'
-            pure
-            showClear
-          />
-        </div>
-
-        <div className='w-full md:w-28'>
-          <Form.Select
-            field='hasVendor'
-            placeholder={t('供应商')}
-            optionList={filterOptions}
-            size='small'
-            pure
-            showClear
-          />
-        </div>
-
-        <div className='w-full md:w-28'>
-          <Form.Select
-            field='hasTags'
-            placeholder={t('标签')}
-            optionList={filterOptions}
-            size='small'
-            pure
-            showClear
-          />
-        </div>
+            theme={activeFilterCount > 0 ? 'solid' : 'light'}
+          >
+            {t('筛选')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+          </Button>
+        </Popover>
 
         <div className='flex gap-2 w-full md:w-auto'>
           <Button

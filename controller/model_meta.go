@@ -167,11 +167,12 @@ func DeleteModelMeta(c *gin.Context) {
 // BatchConfigureModels 批量配置模型元数据（图标、描述、标签、供应商）
 func BatchConfigureModels(c *gin.Context) {
 	var req struct {
-		ModelNames  []string `json:"model_names"`
-		Icon        string   `json:"icon"`
-		Description string   `json:"description"`
-		Tags        string   `json:"tags"`
-		VendorID    *int     `json:"vendor_id"`
+		ModelNames    []string `json:"model_names"`
+		Icon          string   `json:"icon"`
+		Description   string   `json:"description"`
+		Tags          string   `json:"tags"`
+		VendorID      *int     `json:"vendor_id"`
+		VideoProvider *string  `json:"video_provider"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ApiError(c, err)
@@ -195,6 +196,9 @@ func BatchConfigureModels(c *gin.Context) {
 	}
 	if req.VendorID != nil {
 		updateFields["vendor_id"] = *req.VendorID
+	}
+	if req.VideoProvider != nil {
+		updateFields["video_provider"] = *req.VideoProvider
 	}
 
 	if len(updateFields) == 0 {
@@ -237,6 +241,9 @@ func BatchConfigureModels(c *gin.Context) {
 			}
 			if req.VendorID != nil {
 				newModel.VendorID = *req.VendorID
+			}
+			if req.VideoProvider != nil {
+				newModel.VideoProvider = *req.VideoProvider
 			}
 			if err := newModel.Insert(); err != nil {
 				continue

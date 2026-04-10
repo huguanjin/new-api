@@ -26,6 +26,7 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
       home: true,
       console: true,
       painting: true,
+      video: true,
       pricing: true,
       docs: true,
       about: true,
@@ -49,6 +50,11 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
         text: t('绘画'),
         itemKey: 'painting',
         to: '/painting',
+      },
+      {
+        text: t('视频'),
+        itemKey: 'video',
+        to: '/video',
       },
       {
         text: t('模型广场'),
@@ -85,6 +91,10 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
       }
       // painting defaults to true if not specified in backend config
       if (link.itemKey === 'painting') {
+        return modules[link.itemKey] !== false;
+      }
+      // video defaults to true if not specified in backend config
+      if (link.itemKey === 'video') {
         return modules[link.itemKey] !== false;
       }
       return modules[link.itemKey] === true;

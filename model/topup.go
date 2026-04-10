@@ -101,6 +101,9 @@ func Recharge(referenceId string, customerId string) (err error) {
 
 	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d", logger.FormatQuota(int(quota)), topUp.Amount))
 
+	// 充值返利：如果该用户有邀请者且返利比例 > 0，给邀请者发放返利
+	go GrantTopupCommission(topUp.UserId, topUp.Money, topUp.TradeNo)
+
 	return nil
 }
 
@@ -304,6 +307,10 @@ func ManualCompleteTopUp(tradeNo string) error {
 
 	// 事务外记录日志，避免阻塞
 	RecordLog(userId, LogTypeTopup, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney))
+
+	// 充值返利：管理员补单也触发返利
+	go GrantTopupCommission(userId, payMoney, tradeNo)
+
 	return nil
 }
 func RechargeCreem(referenceId string, customerEmail string, customerName string) (err error) {
@@ -374,5 +381,54 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 
 	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money))
 
+	// 充值返利
+	go GrantTopupCommission(topUp.UserId, topUp.Money, topUp.TradeNo)
+
 	return nil
+}
+
+// GrantTopupCommission 给邀请者发放充值返利
+func GrantTopupCommission(userId int, money float64, tradeNo string) {
+	if common.TopupCommissionRate <= 0 || common.TopupCommissionMaxCount <= 0 {
+		return
+	}
+	if money <= 0 {
+		return
+	}
+
+	user, err := GetUserById(userId, false)
+	if err != nil || user.InviterId <= 0 {
+		return
+	}
+
+	// 统计该用户已完成的充值次数（不含当前这笔，因为状态已更新为 success）
+	var successCount int64
+	err = DB.Model(&TopUp{}).Where("user_id = ? AND status = ?", userId, common.TopUpStatusSuccess).Count(&successCount).Error
+	if err != nil {
+		common.SysError(fmt.Sprintf("grant topup commission count failed: userId=%d, err=%s", userId, err.Error()))
+		return
+	}
+
+	// successCount 已包含当前这笔（状态已更新为 success），因此直接比较
+	if successCount > int64(common.TopupCommissionMaxCount) {
+		return
+	}
+
+	commission := money * common.TopupCommissionRate
+	if commission <= 0 {
+		return
+	}
+
+	err = DB.Model(&User{}).Where("id = ?", user.InviterId).
+		Updates(map[string]interface{}{
+			"commission_balance": gorm.Expr("commission_balance + ?", commission),
+			"commission_total":   gorm.Expr("commission_total + ?", commission),
+		}).Error
+	if err != nil {
+		common.SysError(fmt.Sprintf("grant topup commission failed: userId=%d, inviterId=%d, err=%s", userId, user.InviterId, err.Error()))
+		return
+	}
+
+	RecordLog(user.InviterId, LogTypeTopup,
+		fmt.Sprintf("邀请用户充值返利，被邀请用户ID: %d，充值金额: %.2f 元，返利: %.2f 元，订单号: %s", userId, money, commission, tradeNo))
 }

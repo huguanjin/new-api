@@ -2,6 +2,7 @@ package controller
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -34,6 +35,16 @@ func GetAllTask(c *gin.Context) {
 		EndTimestamp:   endTimestamp,
 		ChannelID:      c.Query("channel_id"),
 		UserID:         c.Query("user_id"),
+	}
+
+	// 支持多平台过滤（逗号分隔），与单平台互斥
+	if platformsStr := c.Query("platforms"); platformsStr != "" && queryParams.Platform == "" {
+		for _, p := range strings.Split(platformsStr, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				queryParams.Platforms = append(queryParams.Platforms, constant.TaskPlatform(p))
+			}
+		}
 	}
 
 	// 按用户名搜索：解析为用户 ID 列表
@@ -73,6 +84,16 @@ func GetUserTask(c *gin.Context) {
 		Action:         c.Query("action"),
 		StartTimestamp: startTimestamp,
 		EndTimestamp:   endTimestamp,
+	}
+
+	// 支持多平台过滤（逗号分隔），与单平台互斥
+	if platformsStr := c.Query("platforms"); platformsStr != "" && queryParams.Platform == "" {
+		for _, p := range strings.Split(platformsStr, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				queryParams.Platforms = append(queryParams.Platforms, constant.TaskPlatform(p))
+			}
+		}
 	}
 
 	items := model.TaskGetAllUserTask(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)

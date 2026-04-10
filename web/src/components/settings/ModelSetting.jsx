@@ -26,6 +26,7 @@ import SettingGeminiModel from '../../pages/Setting/Model/SettingGeminiModel';
 import SettingClaudeModel from '../../pages/Setting/Model/SettingClaudeModel';
 import SettingGlobalModel from '../../pages/Setting/Model/SettingGlobalModel';
 import SettingGrokModel from '../../pages/Setting/Model/SettingGrokModel';
+import SettingVideoModel from '../../pages/Setting/Model/SettingVideoModel';
 import SettingsChannelAffinity from '../../pages/Setting/Operation/SettingsChannelAffinity';
 
 const ModelSetting = () => {
@@ -48,6 +49,7 @@ const ModelSetting = () => {
     'gemini.thinking_adapter_budget_tokens_percentage': 0.6,
     'grok.violation_deduction_enabled': true,
     'grok.violation_deduction_amount': 0.05,
+    'video.providers': '[]',
   });
 
   let [loading, setLoading] = useState(false);
@@ -65,7 +67,8 @@ const ModelSetting = () => {
           item.key === 'claude.default_max_tokens' ||
           item.key === 'gemini.supported_imagine_models' ||
           item.key === 'global.thinking_model_blacklist' ||
-          item.key === 'global.chat_completions_to_responses_policy'
+          item.key === 'global.chat_completions_to_responses_policy' ||
+          item.key === 'video.providers'
         ) {
           if (item.value !== '') {
             try {
@@ -128,6 +131,10 @@ const ModelSetting = () => {
         {/* Grok */}
         <Card style={{ marginTop: '10px' }}>
           <SettingGrokModel options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* Video */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingVideoModel options={inputs} refresh={onRefresh} />
         </Card>
       </Spin>
     </>

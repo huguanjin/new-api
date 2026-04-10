@@ -159,6 +159,7 @@ func (p TaskPrivateData) Value() (driver.Value, error) {
 // SyncTaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段
 type SyncTaskQueryParams struct {
 	Platform       constant.TaskPlatform
+	Platforms      []constant.TaskPlatform // 多平台过滤（IN 查询），与 Platform 互斥
 	ChannelID      string
 	TaskID         string
 	UserID         string
@@ -226,6 +227,8 @@ func TaskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQ
 	}
 	if queryParams.Platform != "" {
 		query = query.Where("platform = ?", queryParams.Platform)
+	} else if len(queryParams.Platforms) > 0 {
+		query = query.Where("platform IN (?)", queryParams.Platforms)
 	}
 	if queryParams.StartTimestamp != 0 {
 		// 假设您已将前端传来的时间戳转换为数据库所需的时间格式，并处理了时间戳的验证和解析
@@ -257,6 +260,8 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 	}
 	if queryParams.Platform != "" {
 		query = query.Where("platform = ?", queryParams.Platform)
+	} else if len(queryParams.Platforms) > 0 {
+		query = query.Where("platform IN (?)", queryParams.Platforms)
 	}
 	if queryParams.UserID != "" {
 		query = query.Where("user_id = ?", queryParams.UserID)
@@ -455,6 +460,8 @@ func TaskCountAllTasks(queryParams SyncTaskQueryParams) int64 {
 	}
 	if queryParams.Platform != "" {
 		query = query.Where("platform = ?", queryParams.Platform)
+	} else if len(queryParams.Platforms) > 0 {
+		query = query.Where("platform IN (?)", queryParams.Platforms)
 	}
 	if queryParams.UserID != "" {
 		query = query.Where("user_id = ?", queryParams.UserID)
@@ -496,6 +503,8 @@ func TaskCountAllUserTask(userId int, queryParams SyncTaskQueryParams) int64 {
 	}
 	if queryParams.Platform != "" {
 		query = query.Where("platform = ?", queryParams.Platform)
+	} else if len(queryParams.Platforms) > 0 {
+		query = query.Where("platform IN (?)", queryParams.Platforms)
 	}
 	if queryParams.StartTimestamp != 0 {
 		query = query.Where("submit_time >= ?", queryParams.StartTimestamp)

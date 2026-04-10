@@ -70,6 +70,9 @@ const EditModelModal = (props) => {
   // 供应商列表
   const [vendors, setVendors] = useState([]);
 
+  // 视频供应商选项
+  const [videoProviderOptions, setVideoProviderOptions] = useState([]);
+
   // 预填组（标签、端点）
   const [tagGroups, setTagGroups] = useState([]);
   const [endpointGroups, setEndpointGroups] = useState([]);
@@ -109,6 +112,20 @@ const EditModelModal = (props) => {
     if (props.visiable) {
       fetchVendors();
       fetchPrefillGroups();
+      // 加载视频供应商选项
+      try {
+        const stored = localStorage.getItem('video_models');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setVideoProviderOptions(
+              parsed.map((p) => ({ label: p.label, value: p.key })),
+            );
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
     }
   }, [props.visiable]);
 
@@ -121,6 +138,7 @@ const EditModelModal = (props) => {
     vendor: '',
     vendor_icon: '',
     endpoints: '',
+    video_provider: '',
     name_rule: props.editingModel?.model_name ? 0 : undefined, // 通过未配置模型过来的固定为精确匹配
     status: true,
     sync_official: true,
@@ -446,6 +464,22 @@ const EditModelModal = (props) => {
                       style={{ width: '100%' }}
                     />
                   </Col>
+                  {videoProviderOptions.length > 0 && (
+                    <Col span={24}>
+                      <Form.Select
+                        field='video_provider'
+                        label={t('视频供应商')}
+                        placeholder={t('选择视频供应商（可选）')}
+                        optionList={videoProviderOptions}
+                        filter
+                        showClear
+                        extraText={t(
+                          '指定后，该模型将出现在视频页面对应供应商的模型下拉列表中',
+                        )}
+                        style={{ width: '100%' }}
+                      />
+                    </Col>
+                  )}
                   <Col span={24}>
                     <Banner
                       type='warning'

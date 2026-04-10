@@ -94,6 +94,8 @@ const TopUp = () => {
   const [openCommissionTransfer, setOpenCommissionTransfer] = useState(false);
   const [commissionTransferLoading, setCommissionTransferLoading] = useState(false);
   const [commissionRate, setCommissionRate] = useState(0);
+  const [topupCommissionRate, setTopupCommissionRate] = useState(0);
+  const [topupCommissionMaxCount, setTopupCommissionMaxCount] = useState(0);
 
   // 账单Modal状态
   const [openHistory, setOpenHistory] = useState(false);
@@ -582,6 +584,8 @@ const TopUp = () => {
       const res = await API.get('/api/user/commission');
       if (res.data?.success && res.data.data) {
         setCommissionRate(res.data.data.commission_rate || 0);
+        setTopupCommissionRate(res.data.data.topup_commission_rate || 0);
+        setTopupCommissionMaxCount(res.data.data.topup_commission_max_count || 0);
       }
     } catch (err) {
       // ignore
@@ -871,6 +875,8 @@ const TopUp = () => {
           setOpenWithdraw={setOpenWithdraw}
           setOpenCommissionTransfer={setOpenCommissionTransfer}
           commissionRate={commissionRate}
+          topupCommissionRate={topupCommissionRate}
+          topupCommissionMaxCount={topupCommissionMaxCount}
           affLink={affLink}
           handleAffLinkClick={handleAffLinkClick}
         />

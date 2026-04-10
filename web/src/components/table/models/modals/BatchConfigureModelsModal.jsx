@@ -26,6 +26,7 @@ const BatchConfigureModelsModal = ({
   const [loading, setLoading] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [tagGroups, setTagGroups] = useState([]);
+  const [videoProviderOptions, setVideoProviderOptions] = useState([]);
   const [showModelList, setShowModelList] = useState(false);
   const formApiRef = useRef(null);
   const isMobile = useIsMobile();
@@ -54,11 +55,24 @@ const BatchConfigureModelsModal = ({
       fetchVendors();
       fetchTagGroups();
       setShowModelList(false);
+      // 加载视频供应商选项
+      try {
+        const stored = localStorage.getItem('video_models');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setVideoProviderOptions(
+              parsed.map((p) => ({ label: p.label, value: p.key })),
+            );
+          }
+        }
+      } catch (_) {}
       formApiRef.current?.setValues({
         icon: '',
         description: '',
         tags: [],
         vendor_id: undefined,
+        video_provider: undefined,
       });
     }
   }, [visible]);
@@ -78,9 +92,12 @@ const BatchConfigureModelsModal = ({
     if (values.vendor_id !== undefined && values.vendor_id !== null) {
       data.vendor_id = values.vendor_id;
     }
+    if (values.video_provider !== undefined && values.video_provider !== null) {
+      data.video_provider = values.video_provider;
+    }
 
     // 检查是否至少填写了一个字段
-    if (!data.icon && !data.description && !data.tags && data.vendor_id === undefined) {
+    if (!data.icon && !data.description && !data.tags && data.vendor_id === undefined && data.video_provider === undefined) {
       showError(t('至少需要填写一个配置字段'));
       return;
     }
@@ -176,6 +193,7 @@ const BatchConfigureModelsModal = ({
             description: '',
             tags: [],
             vendor_id: undefined,
+            video_provider: undefined,
           }}
         >
           <Form.Input
@@ -276,6 +294,19 @@ const BatchConfigureModelsModal = ({
             showClear
             style={{ width: '100%' }}
           />
+
+          {videoProviderOptions.length > 0 && (
+            <Form.Select
+              field='video_provider'
+              label={t('视频供应商')}
+              placeholder={t('选择视频供应商（可选）')}
+              optionList={videoProviderOptions}
+              filter
+              showClear
+              extraText={t('指定后，该模型将出现在视频页面对应供应商的模型下拉列表中')}
+              style={{ width: '100%' }}
+            />
+          )}
         </Form>
       </Spin>
     </Modal>

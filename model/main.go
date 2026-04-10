@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -251,6 +252,11 @@ func migrateDB() error {
 	// Migrate price_amount column from float/double to decimal for existing tables
 	migrateSubscriptionPlanPriceAmount()
 
+	// Fix SQLite DDL: decimal(M,N) contains a comma inside parens which breaks
+	// GORM's DDL parser ("invalid DDL, unbalanced brackets").
+	// Normalize to "real" which is semantically equivalent on SQLite.
+	fixSQLiteDecimalDDL()
+
 	err := DB.AutoMigrate(
 		&Channel{},
 		&Token{},
@@ -370,6 +376,44 @@ func migrateLOGDB() error {
 		return err
 	}
 	return nil
+}
+
+// fixSQLiteDecimalDDL normalizes decimal(M,N) column types to "real" in
+// SQLite's sqlite_master. GORM's DDL parser splits columns by commas, so
+// the comma inside "decimal(10,2)" causes "invalid DDL, unbalanced brackets".
+// SQLite type affinity treats both decimal and real as REAL, so this is safe.
+var decimalPattern = regexp.MustCompile(`(?i)decimal\(\d+\s*,\s*\d+\)`)
+
+func fixSQLiteDecimalDDL() {
+	if !common.UsingSQLite {
+		return
+	}
+
+	type tableRow struct {
+		Name string `gorm:"column:name"`
+		SQL  string `gorm:"column:sql"`
+	}
+	var tables []tableRow
+	DB.Raw("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND sql LIKE '%decimal(%'").Scan(&tables)
+	if len(tables) == 0 {
+		return
+	}
+
+	DB.Exec("PRAGMA writable_schema = ON")
+	for _, t := range tables {
+		newSQL := decimalPattern.ReplaceAllString(t.SQL, "real")
+		if newSQL != t.SQL {
+			DB.Exec("UPDATE sqlite_master SET sql = ? WHERE type = 'table' AND name = ?", newSQL, t.Name)
+			common.SysLog(fmt.Sprintf("Normalized decimal column type to real in table %s for SQLite compatibility", t.Name))
+		}
+	}
+	DB.Exec("PRAGMA writable_schema = OFF")
+	// Verify integrity after schema modification
+	var result string
+	DB.Raw("PRAGMA integrity_check").Scan(&result)
+	if result != "" && result != "ok" {
+		common.SysLog(fmt.Sprintf("WARNING: SQLite integrity check after DDL fix: %s", result))
+	}
 }
 
 type sqliteColumnDef struct {

@@ -37,6 +37,8 @@ export default function SettingsCreditLimit(props) {
     QuotaForInviter: '',
     QuotaForInvitee: '',
     SubscriptionCommissionRate: '',
+    TopupCommissionRate: '',
+    TopupCommissionMaxCount: '',
     'quota_setting.enable_free_model_pre_consume': true,
   });
   const refForm = useRef();
@@ -181,6 +183,41 @@ export default function SettingsCreditLimit(props) {
                     setInputs({
                       ...inputs,
                       SubscriptionCommissionRate: String(value),
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('充值返利比例')}
+                  field={'TopupCommissionRate'}
+                  step={0.01}
+                  min={0}
+                  max={1}
+                  suffix={''}
+                  extraText={t('被邀请用户充值时，邀请者获得充值金额的对应比例作为现金返利，0为关闭，0.1表示10%')}
+                  placeholder={t('例如：0.1')}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      TopupCommissionRate: String(value),
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('充值返利次数')}
+                  field={'TopupCommissionMaxCount'}
+                  step={1}
+                  min={0}
+                  suffix={''}
+                  extraText={t('被邀请用户前N次充值可触发返利，0为不返利')}
+                  placeholder={t('例如：3')}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      TopupCommissionMaxCount: String(value),
                     })
                   }
                 />

@@ -95,9 +95,11 @@ func GetCommissionInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"commission_balance": user.CommissionBalance,
-			"commission_total":   user.CommissionTotal,
-			"commission_rate":    common.SubscriptionCommissionRate,
+			"commission_balance":         user.CommissionBalance,
+			"commission_total":           user.CommissionTotal,
+			"commission_rate":            common.SubscriptionCommissionRate,
+			"topup_commission_rate":      common.TopupCommissionRate,
+			"topup_commission_max_count": common.TopupCommissionMaxCount,
 		},
 	})
 }

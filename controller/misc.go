@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/oauth"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
@@ -117,6 +118,8 @@ func GetStatus(c *gin.Context) {
 		"user_agreement_enabled":      legalSetting.UserAgreement != "",
 		"privacy_policy_enabled":      legalSetting.PrivacyPolicy != "",
 		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
+		"video_models":                model_setting.GetVideoSettings().Providers,
+		"video_provider_models":        getVideoProviderModels(),
 		"_qn":                         "new-api",
 	}
 
@@ -181,6 +184,14 @@ func GetNotice(c *gin.Context) {
 		"data":    common.OptionMap["Notice"],
 	})
 	return
+}
+
+func getVideoProviderModels() map[string][]string {
+	result, err := model.GetModelsByVideoProvider()
+	if err != nil {
+		return map[string][]string{}
+	}
+	return result
 }
 
 func GetAbout(c *gin.Context) {

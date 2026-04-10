@@ -39,6 +39,8 @@ const InvitationCard = ({
   setOpenWithdraw,
   setOpenCommissionTransfer,
   commissionRate,
+  topupCommissionRate,
+  topupCommissionMaxCount,
   affLink,
   handleAffLinkClick,
 }) => {
@@ -201,7 +203,7 @@ const InvitationCard = ({
             <div className='flex justify-between items-center mb-3'>
               <Text strong style={{ fontSize: '15px' }}>
                 <DollarSign size={14} className='inline mr-1' />
-                {t('订阅返利')}
+                {t('邀请返利')}
               </Text>
               <Space>
                 <Button
@@ -281,22 +283,41 @@ const InvitationCard = ({
               </Text>
             </div>
 
-            {commissionRate > 0 && (
-              <>
-                <div className='flex items-start gap-2'>
-                  <Badge dot type='success' />
-                  <Text type='tertiary' className='text-sm'>
-                    {t('邀请的好友订阅套餐后，您可获得现金返利，可申请提现或划转至余额')}
-                  </Text>
-                </div>
-
-                <div className='flex items-start gap-2'>
-                  <Badge dot type='success' />
-                  <Text type='tertiary' className='text-sm'>
-                    {t('返利金额 = 好友订阅支付金额 × {{rate}}，返利到账后可申请提现至支付宝或划转至账户余额', { rate: (commissionRate * 100).toFixed(0) + '%' })}
-                  </Text>
-                </div>
-              </>
+            {(commissionRate > 0 || (topupCommissionRate > 0 && topupCommissionMaxCount > 0)) && (
+              <div className='flex flex-col gap-2 p-3 rounded-lg' style={{ backgroundColor: 'var(--semi-color-fill-0)' }}>
+                {commissionRate > 0 && (
+                  <>
+                    <div className='flex items-start gap-2'>
+                      <Badge dot type='success' />
+                      <Text type='tertiary' className='text-sm'>
+                        {t('订阅返利比例：{{rate}}', { rate: (commissionRate * 100).toFixed(0) + '%' })}
+                      </Text>
+                    </div>
+                    <div className='flex items-start gap-2'>
+                      <Badge dot type='success' />
+                      <Text type='tertiary' className='text-sm'>
+                        {t('订阅返利次数：不限')}
+                      </Text>
+                    </div>
+                  </>
+                )}
+                {topupCommissionRate > 0 && topupCommissionMaxCount > 0 && (
+                  <>
+                    <div className='flex items-start gap-2'>
+                      <Badge dot type='success' />
+                      <Text type='tertiary' className='text-sm'>
+                        {t('充值返利比例：{{rate}}', { rate: (topupCommissionRate * 100).toFixed(0) + '%' })}
+                      </Text>
+                    </div>
+                    <div className='flex items-start gap-2'>
+                      <Badge dot type='success' />
+                      <Text type='tertiary' className='text-sm'>
+                        {t('充值返利次数：好友前 {{count}} 次充值', { count: topupCommissionMaxCount })}
+                      </Text>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
             <div className='flex items-start gap-2'>
