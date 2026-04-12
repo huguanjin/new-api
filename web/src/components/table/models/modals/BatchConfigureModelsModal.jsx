@@ -73,6 +73,7 @@ const BatchConfigureModelsModal = ({
         tags: [],
         vendor_id: undefined,
         video_provider: undefined,
+        image_provider: undefined,
       });
     }
   }, [visible]);
@@ -95,9 +96,12 @@ const BatchConfigureModelsModal = ({
     if (values.video_provider !== undefined && values.video_provider !== null) {
       data.video_provider = values.video_provider;
     }
+    if (values.image_provider !== undefined && values.image_provider !== null) {
+      data.image_provider = values.image_provider ? 'painting' : '';
+    }
 
     // 检查是否至少填写了一个字段
-    if (!data.icon && !data.description && !data.tags && data.vendor_id === undefined && data.video_provider === undefined) {
+    if (!data.icon && !data.description && !data.tags && data.vendor_id === undefined && data.video_provider === undefined && data.image_provider === undefined) {
       showError(t('至少需要填写一个配置字段'));
       return;
     }
@@ -194,6 +198,7 @@ const BatchConfigureModelsModal = ({
             tags: [],
             vendor_id: undefined,
             video_provider: undefined,
+            image_provider: undefined,
           }}
         >
           <Form.Input
@@ -307,6 +312,14 @@ const BatchConfigureModelsModal = ({
               style={{ width: '100%' }}
             />
           )}
+
+          <Form.Switch
+            field='image_provider'
+            label={t('绘画模型')}
+            extraText={t('开启后，所选模型将出现在绘画页面的模型下拉列表中')}
+            checkedText={t('是')}
+            uncheckedText={t('否')}
+          />
         </Form>
       </Spin>
     </Modal>

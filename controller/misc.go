@@ -120,6 +120,7 @@ func GetStatus(c *gin.Context) {
 		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
 		"video_models":                model_setting.GetVideoSettings().Providers,
 		"video_provider_models":        getVideoProviderModels(),
+		"painting_models":              getPaintingModels(),
 		"_qn":                         "new-api",
 	}
 
@@ -190,6 +191,14 @@ func getVideoProviderModels() map[string][]string {
 	result, err := model.GetModelsByVideoProvider()
 	if err != nil {
 		return map[string][]string{}
+	}
+	return result
+}
+
+func getPaintingModels() []string {
+	result, err := model.GetPaintingModels()
+	if err != nil {
+		return []string{}
 	}
 	return result
 }

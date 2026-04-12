@@ -173,6 +173,7 @@ func BatchConfigureModels(c *gin.Context) {
 		Tags          string   `json:"tags"`
 		VendorID      *int     `json:"vendor_id"`
 		VideoProvider *string  `json:"video_provider"`
+		ImageProvider *string  `json:"image_provider"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ApiError(c, err)
@@ -199,6 +200,9 @@ func BatchConfigureModels(c *gin.Context) {
 	}
 	if req.VideoProvider != nil {
 		updateFields["video_provider"] = *req.VideoProvider
+	}
+	if req.ImageProvider != nil {
+		updateFields["image_provider"] = *req.ImageProvider
 	}
 
 	if len(updateFields) == 0 {

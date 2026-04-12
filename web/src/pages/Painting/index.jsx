@@ -35,11 +35,6 @@ import { API } from '../../helpers/api';
 const { Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
-const MODELS = [
-  { value: 'gemini-3.1-flash-image-preview', label: 'Gemini 3.1 Flash Image' },
-  { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image' },
-];
-
 const ASPECT_RATIOS = [
   { value: '1:1', label: '1:1' },
   { value: '16:9', label: '16:9' },
@@ -90,7 +85,8 @@ export default function Painting() {
   const { images: galleryImages, loading: galleryLoading, blobUrls, saveImage, deleteImage, fetchImageBlob, fetchImages } = usePaintingGallery();
 
   // State
-  const [model, setModel] = useState(MODELS[0].value);
+  const [paintingModels, setPaintingModels] = useState([]);
+  const [model, setModel] = useState('');
   const [tokenKey, setTokenKey] = useState('');
   const [tokens, setTokens] = useState([]);
   const [tokensLoading, setTokensLoading] = useState(true);
@@ -102,6 +98,24 @@ export default function Painting() {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewSrc, setPreviewSrc] = useState('');
   const [activeTab, setActiveTab] = useState('generate');
+
+  // Load painting models from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('painting_models');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const models = parsed.map((name) => ({ value: name, label: name }));
+          setPaintingModels(models);
+          setModel(models[0].value);
+          return;
+        }
+      }
+    } catch (_) {}
+    setPaintingModels([]);
+    setModel('');
+  }, []);
 
   // Fetch user tokens
   useEffect(() => {
@@ -252,7 +266,8 @@ export default function Painting() {
                     value={model}
                     onChange={setModel}
                     style={{ width: '100%' }}
-                    optionList={MODELS}
+                    optionList={paintingModels}
+                    emptyContent={t('暂无可用模型，请在模型管理中配置')}
                   />
                 </div>
                 {/* Token */}

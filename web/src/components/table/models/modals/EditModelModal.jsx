@@ -139,6 +139,7 @@ const EditModelModal = (props) => {
     vendor_icon: '',
     endpoints: '',
     video_provider: '',
+    image_provider: '',
     name_rule: props.editingModel?.model_name ? 0 : undefined, // 通过未配置模型过来的固定为精确匹配
     status: true,
     sync_official: true,
@@ -169,6 +170,8 @@ const EditModelModal = (props) => {
         // 处理status/sync_official，将数字转为布尔值
         data.status = data.status === 1;
         data.sync_official = (data.sync_official ?? 1) === 1;
+        // 处理image_provider，将字符串转为布尔值供Switch使用
+        data.image_provider = !!data.image_provider;
         if (formApiRef.current) {
           formApiRef.current.setValues({ ...getInitValues(), ...data });
         }
@@ -216,6 +219,7 @@ const EditModelModal = (props) => {
         endpoints: values.endpoints || '',
         status: values.status ? 1 : 0,
         sync_official: values.sync_official ? 1 : 0,
+        image_provider: values.image_provider ? 'painting' : '',
       };
 
       if (isEdit) {
@@ -480,6 +484,17 @@ const EditModelModal = (props) => {
                       />
                     </Col>
                   )}
+                  <Col span={24}>
+                    <Form.Switch
+                      field='image_provider'
+                      label={t('绘画模型')}
+                      extraText={t(
+                        '开启后，该模型将出现在绘画页面的模型下拉列表中',
+                      )}
+                      checkedText={t('是')}
+                      uncheckedText={t('否')}
+                    />
+                  </Col>
                   <Col span={24}>
                     <Banner
                       type='warning'
