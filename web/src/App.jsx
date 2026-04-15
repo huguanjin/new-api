@@ -60,6 +60,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
 const Painting = lazy(() => import('./pages/Painting'));
 const Video = lazy(() => import('./pages/Video'));
+const RedBook = lazy(() => import('./pages/RedBook'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
@@ -393,6 +394,16 @@ function App() {
             <PrivateRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
                 <Video />
+              </Suspense>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path='/redbook'
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <RedBook />
               </Suspense>
             </PrivateRoute>
           }

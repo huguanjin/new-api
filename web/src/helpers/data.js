@@ -33,6 +33,8 @@ export function setStatusData(data) {
   localStorage.setItem('video_models', JSON.stringify(data.video_models || []));
   localStorage.setItem('video_provider_models', JSON.stringify(data.video_provider_models || {}));
   localStorage.setItem('painting_models', JSON.stringify(data.painting_models || []));
+  localStorage.setItem('redbook_text_models', JSON.stringify(data.redbook_text_models || []));
+  localStorage.setItem('redbook_image_models', JSON.stringify(data.redbook_image_models || []));
   localStorage.setItem(
     'data_export_default_time',
     data.data_export_default_time,

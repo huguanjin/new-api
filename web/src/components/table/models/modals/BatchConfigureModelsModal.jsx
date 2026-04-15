@@ -74,6 +74,7 @@ const BatchConfigureModelsModal = ({
         vendor_id: undefined,
         video_provider: undefined,
         image_provider: undefined,
+        red_book_provider: undefined,
       });
     }
   }, [visible]);
@@ -99,9 +100,12 @@ const BatchConfigureModelsModal = ({
     if (values.image_provider !== undefined && values.image_provider !== null) {
       data.image_provider = values.image_provider ? 'painting' : '';
     }
+    if (values.red_book_provider !== undefined && values.red_book_provider !== null) {
+      data.red_book_provider = values.red_book_provider;
+    }
 
     // 检查是否至少填写了一个字段
-    if (!data.icon && !data.description && !data.tags && data.vendor_id === undefined && data.video_provider === undefined && data.image_provider === undefined) {
+    if (!data.icon && !data.description && !data.tags && data.vendor_id === undefined && data.video_provider === undefined && data.image_provider === undefined && data.red_book_provider === undefined) {
       showError(t('至少需要填写一个配置字段'));
       return;
     }
@@ -199,6 +203,7 @@ const BatchConfigureModelsModal = ({
             vendor_id: undefined,
             video_provider: undefined,
             image_provider: undefined,
+            red_book_provider: undefined,
           }}
         >
           <Form.Input
@@ -319,6 +324,20 @@ const BatchConfigureModelsModal = ({
             extraText={t('开启后，所选模型将出现在绘画页面的模型下拉列表中')}
             checkedText={t('是')}
             uncheckedText={t('否')}
+          />
+
+          <Form.Select
+            field='red_book_provider'
+            label={t('小红书模型角色')}
+            placeholder={t('选择小红书模型角色（可选）')}
+            optionList={[
+              { label: t('无'), value: '' },
+              { label: t('文本生成模型'), value: 'text' },
+              { label: t('图片生成模型'), value: 'image' },
+            ]}
+            showClear
+            extraText={t('指定后，所选模型将出现在小红书页面对应的模型选择列表中')}
+            style={{ width: '100%' }}
           />
         </Form>
       </Spin>

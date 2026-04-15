@@ -138,6 +138,9 @@ func main() {
 	// Start painting image cleanup task (48h TTL)
 	controller.StartPaintingCleanupTask()
 
+	// Start redbook cleanup task (48h TTL)
+	controller.StartRedBookCleanupTask()
+
 	if os.Getenv("ENABLE_PPROF") == "true" {
 		pprofPort := os.Getenv("PPROF_PORT")
 		if pprofPort == "" {

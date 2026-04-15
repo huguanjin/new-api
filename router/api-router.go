@@ -341,6 +341,20 @@ func SetApiRouter(router *gin.Engine) {
 			paintingRoute.DELETE("/images/:id", controller.DeletePaintingImage)
 		}
 
+		redBookRoute := apiRouter.Group("/redbook")
+		redBookRoute.Use(middleware.UserAuth())
+		{
+			redBookRoute.POST("/projects", controller.SaveRedBookProject)
+			redBookRoute.GET("/projects", controller.GetRedBookProjects)
+			redBookRoute.GET("/projects/:id", controller.GetRedBookProject)
+			redBookRoute.PUT("/projects/:id", controller.UpdateRedBookProject)
+			redBookRoute.DELETE("/projects/:id", controller.DeleteRedBookProject)
+			redBookRoute.POST("/images", controller.SaveRedBookImage)
+			redBookRoute.GET("/images", controller.GetRedBookImages)
+			redBookRoute.GET("/images/:id/file", controller.GetRedBookImageFile)
+			redBookRoute.DELETE("/images/:id", controller.DeleteRedBookImage)
+		}
+
 		vendorRoute := apiRouter.Group("/vendors")
 		vendorRoute.Use(middleware.AdminAuth())
 		{

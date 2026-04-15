@@ -3819,6 +3819,20 @@
     "视频生成失败": "Tạo video thất bại",
     "选择供应商和模型，输入提示词，开始生成视频": "Chọn nhà cung cấp và mô hình, nhập prompt và bắt đầu tạo video",
     "图片URL": "URL hình ảnh",
-    "输入图片URL，每行一个\n1张图：图生视频\n2张图：首尾帧生视频": "Nhập URL hình ảnh, mỗi dòng một URL\n1 ảnh: tạo video từ ảnh\n2 ảnh: tạo video từ khung đầu-cuối"
+    "输入图片URL，每行一个\n1张图：图生视频\n2张图：首尾帧生视频": "Nhập URL hình ảnh, mỗi dòng một URL\n1 ảnh: tạo video từ ảnh\n2 ảnh: tạo video từ khung đầu-cuối",
+    "小红书": "RedBook",
+    "小红书图文生成": "Trình tạo nội dung RedBook",
+    "文本模型": "Mô hình văn bản",
+    "图片模型": "Mô hình hình ảnh",
+    "文本密钥": "Khóa văn bản",
+    "图片密钥": "Khóa hình ảnh",
+    "生成大纲": "Tạo dàn ý",
+    "一键生成图片": "Tạo tất cả hình ảnh",
+    "一键下载": "Tải xuống tất cả",
+    "封面": "Bìa",
+    "内容页": "Nội dung",
+    "小红书模型角色": "Vai trò mô hình RedBook",
+    "文本生成模型": "Mô hình tạo văn bản",
+    "图片生成模型": "Mô hình tạo hình ảnh"
   }
 }

@@ -140,6 +140,7 @@ const EditModelModal = (props) => {
     endpoints: '',
     video_provider: '',
     image_provider: '',
+    red_book_provider: '',
     name_rule: props.editingModel?.model_name ? 0 : undefined, // 通过未配置模型过来的固定为精确匹配
     status: true,
     sync_official: true,
@@ -172,6 +173,7 @@ const EditModelModal = (props) => {
         data.sync_official = (data.sync_official ?? 1) === 1;
         // 处理image_provider，将字符串转为布尔值供Switch使用
         data.image_provider = !!data.image_provider;
+        // red_book_provider 保持字符串原值
         if (formApiRef.current) {
           formApiRef.current.setValues({ ...getInitValues(), ...data });
         }
@@ -220,6 +222,7 @@ const EditModelModal = (props) => {
         status: values.status ? 1 : 0,
         sync_official: values.sync_official ? 1 : 0,
         image_provider: values.image_provider ? 'painting' : '',
+        red_book_provider: values.red_book_provider || '',
       };
 
       if (isEdit) {
@@ -493,6 +496,23 @@ const EditModelModal = (props) => {
                       )}
                       checkedText={t('是')}
                       uncheckedText={t('否')}
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <Form.Select
+                      field='red_book_provider'
+                      label={t('小红书模型角色')}
+                      placeholder={t('选择小红书模型角色（可选）')}
+                      optionList={[
+                        { label: t('无'), value: '' },
+                        { label: t('文本生成模型'), value: 'text' },
+                        { label: t('图片生成模型'), value: 'image' },
+                      ]}
+                      showClear
+                      extraText={t(
+                        '指定后，该模型将出现在小红书页面对应的模型选择列表中',
+                      )}
+                      style={{ width: '100%' }}
                     />
                   </Col>
                   <Col span={24}>

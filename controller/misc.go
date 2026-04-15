@@ -121,6 +121,8 @@ func GetStatus(c *gin.Context) {
 		"video_models":                model_setting.GetVideoSettings().Providers,
 		"video_provider_models":        getVideoProviderModels(),
 		"painting_models":              getPaintingModels(),
+		"redbook_text_models":          getRedBookTextModels(),
+		"redbook_image_models":         getRedBookImageModels(),
 		"_qn":                         "new-api",
 	}
 
@@ -197,6 +199,22 @@ func getVideoProviderModels() map[string][]string {
 
 func getPaintingModels() []string {
 	result, err := model.GetPaintingModels()
+	if err != nil {
+		return []string{}
+	}
+	return result
+}
+
+func getRedBookTextModels() []string {
+	result, err := model.GetRedBookTextModels()
+	if err != nil {
+		return []string{}
+	}
+	return result
+}
+
+func getRedBookImageModels() []string {
+	result, err := model.GetRedBookImageModels()
 	if err != nil {
 		return []string{}
 	}

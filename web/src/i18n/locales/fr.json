@@ -3267,6 +3267,20 @@
     "视频生成失败": "Échec de la génération vidéo",
     "选择供应商和模型，输入提示词，开始生成视频": "Sélectionnez un fournisseur et un modèle, entrez un prompt et commencez à générer une vidéo",
     "图片URL": "URL de l'image",
-    "输入图片URL，每行一个\n1张图：图生视频\n2张图：首尾帧生视频": "Entrez les URL des images, une par ligne\n1 image : image vers vidéo\n2 images : images début-fin vers vidéo"
+    "输入图片URL，每行一个\n1张图：图生视频\n2张图：首尾帧生视频": "Entrez les URL des images, une par ligne\n1 image : image vers vidéo\n2 images : images début-fin vers vidéo",
+    "小红书": "RedBook",
+    "小红书图文生成": "Générateur de contenu RedBook",
+    "文本模型": "Modèle de texte",
+    "图片模型": "Modèle d'image",
+    "文本密钥": "Clé texte",
+    "图片密钥": "Clé image",
+    "生成大纲": "Générer le plan",
+    "一键生成图片": "Générer toutes les images",
+    "一键下载": "Tout télécharger",
+    "封面": "Couverture",
+    "内容页": "Contenu",
+    "小红书模型角色": "Rôle du modèle RedBook",
+    "文本生成模型": "Modèle de génération de texte",
+    "图片生成模型": "Modèle de génération d'images"
   }
 }

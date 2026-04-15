@@ -27,6 +27,7 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
       console: true,
       painting: true,
       video: true,
+      redbook: true,
       pricing: true,
       docs: true,
       about: true,
@@ -55,6 +56,11 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
         text: t('视频'),
         itemKey: 'video',
         to: '/video',
+      },
+      {
+        text: t('小红书'),
+        itemKey: 'redbook',
+        to: '/redbook',
       },
       {
         text: t('模型广场'),
@@ -95,6 +101,10 @@ export const useNavigation = (t, docsLink, headerNavModules) => {
       }
       // video defaults to true if not specified in backend config
       if (link.itemKey === 'video') {
+        return modules[link.itemKey] !== false;
+      }
+      // redbook defaults to true if not specified in backend config
+      if (link.itemKey === 'redbook') {
         return modules[link.itemKey] !== false;
       }
       return modules[link.itemKey] === true;
