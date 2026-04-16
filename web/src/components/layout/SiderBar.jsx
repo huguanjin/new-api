@@ -47,6 +47,7 @@ const routerMap = {
   detail: '/console',
   pricing: '/pricing',
   task: '/console/task',
+  'export-task': '/console/export-task',
   models: '/console/models',
   deployment: '/console/deployment',
   playground: '/console/playground',
@@ -108,6 +109,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         to: '/task',
         className:
           localStorage.getItem('enable_task') === 'true' ? '' : 'tableHiddle',
+      },
+      {
+        text: t('消费清单'),
+        itemKey: 'export-task',
+        to: '/export-task',
       },
     ];
 

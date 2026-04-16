@@ -52,6 +52,7 @@ export default function SettingsSidebarModulesAdmin(props) {
       log: true,
       midjourney: true,
       task: true,
+      'export-task': true,
     },
     personal: {
       enabled: true,
@@ -116,6 +117,7 @@ export default function SettingsSidebarModulesAdmin(props) {
         log: true,
         midjourney: true,
         task: true,
+        'export-task': true,
       },
       personal: {
         enabled: true,
@@ -192,6 +194,7 @@ export default function SettingsSidebarModulesAdmin(props) {
             log: true,
             midjourney: true,
             task: true,
+            'export-task': true,
           },
           personal: { enabled: true, topup: true, 'invited-subscriptions': true, personal: true },
           admin: {
@@ -241,6 +244,7 @@ export default function SettingsSidebarModulesAdmin(props) {
           description: t('绘图任务记录'),
         },
         { key: 'task', title: t('任务日志'), description: t('系统任务记录') },
+        { key: 'export-task', title: t('消费清单'), description: t('导出消费记录') },
       ],
     },
     {

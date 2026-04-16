@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -156,7 +157,42 @@ func SubscriptionEpayNotify(c *gin.Context) {
 	LockOrder(verifyInfo.ServiceTradeNo)
 	defer UnlockOrder(verifyInfo.ServiceTradeNo)
 
+	// Vuln-4: 获取订单并验证金额
+	order := model.GetSubscriptionOrderByTradeNo(verifyInfo.ServiceTradeNo)
+	if order == nil {
+		log.Printf("订阅易支付回调未找到订单: tradeNo=%s", verifyInfo.ServiceTradeNo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
+	// 支付方式交叉验证
+	if order.PaymentMethod == "stripe" || order.PaymentMethod == "creem" || order.PaymentMethod == "waffo" {
+		log.Printf("订阅易支付回调订单支付方式不匹配: %s, tradeNo=%s", order.PaymentMethod, verifyInfo.ServiceTradeNo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
+	// 金额校验
+	callbackMoney, parseErr := strconv.ParseFloat(verifyInfo.Money, 64)
+	if parseErr != nil {
+		log.Printf("订阅易支付回调金额解析失败: money=%s, tradeNo=%s", verifyInfo.Money, verifyInfo.ServiceTradeNo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+	if callbackMoney < order.Money-0.01 {
+		log.Printf("订阅易支付回调金额不匹配: 回调金额=%.2f, 订单金额=%.2f, tradeNo=%s", callbackMoney, order.Money, verifyInfo.ServiceTradeNo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
+	// 幂等：已完成直接返回成功
+	if order.Status != common.TopUpStatusPending {
+		_, _ = c.Writer.Write([]byte("success"))
+		return
+	}
+
 	if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo)); err != nil {
+		log.Printf("订阅易支付回调完成订单失败: tradeNo=%s, err=%v", verifyInfo.ServiceTradeNo, err)
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
@@ -165,7 +201,7 @@ func SubscriptionEpayNotify(c *gin.Context) {
 }
 
 // SubscriptionEpayReturn handles browser return after payment.
-// It verifies the payload and completes the order, then redirects to console.
+// It only verifies the signature and redirects user to the console (order completion is handled by notify callback).
 func SubscriptionEpayReturn(c *gin.Context) {
 	var params map[string]string
 
@@ -202,13 +238,9 @@ func SubscriptionEpayReturn(c *gin.Context) {
 		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
 		return
 	}
+
+	// 仅根据支付状态重定向，不完成订单（由 notify 回调处理）
 	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
-		LockOrder(verifyInfo.ServiceTradeNo)
-		defer UnlockOrder(verifyInfo.ServiceTradeNo)
-		if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo)); err != nil {
-			c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
-			return
-		}
 		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=success")
 		return
 	}

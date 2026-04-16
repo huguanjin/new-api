@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
@@ -204,27 +203,42 @@ func RequestEpay(c *gin.Context) {
 var orderLocks sync.Map
 var createLock sync.Mutex
 
+// refCountedMutex 带引用计数的互斥锁，确保最后一个使用者才从 map 中删除
+type refCountedMutex struct {
+	mu       sync.Mutex
+	refCount int
+}
+
 // LockOrder 尝试对给定订单号加锁
 func LockOrder(tradeNo string) {
-	lock, ok := orderLocks.Load(tradeNo)
-	if !ok {
-		createLock.Lock()
-		defer createLock.Unlock()
-		lock, ok = orderLocks.Load(tradeNo)
-		if !ok {
-			lock = new(sync.Mutex)
-			orderLocks.Store(tradeNo, lock)
-		}
+	createLock.Lock()
+	var rcm *refCountedMutex
+	if v, ok := orderLocks.Load(tradeNo); ok {
+		rcm = v.(*refCountedMutex)
+	} else {
+		rcm = &refCountedMutex{}
+		orderLocks.Store(tradeNo, rcm)
 	}
-	lock.(*sync.Mutex).Lock()
+	rcm.refCount++
+	createLock.Unlock()
+	rcm.mu.Lock()
 }
 
 // UnlockOrder 释放给定订单号的锁
 func UnlockOrder(tradeNo string) {
-	lock, ok := orderLocks.Load(tradeNo)
-	if ok {
-		lock.(*sync.Mutex).Unlock()
+	v, ok := orderLocks.Load(tradeNo)
+	if !ok {
+		return
 	}
+	rcm := v.(*refCountedMutex)
+	rcm.mu.Unlock()
+
+	createLock.Lock()
+	rcm.refCount--
+	if rcm.refCount == 0 {
+		orderLocks.Delete(tradeNo)
+	}
+	createLock.Unlock()
 }
 
 func EpayNotify(c *gin.Context) {
@@ -257,62 +271,75 @@ func EpayNotify(c *gin.Context) {
 	client := GetEpayClient()
 	if client == nil {
 		log.Println("易支付回调失败 未找到配置信息")
-		_, err := c.Writer.Write([]byte("fail"))
-		if err != nil {
-			log.Println("易支付回调写入失败")
-		}
+		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
 	verifyInfo, err := client.Verify(params)
-	if err == nil && verifyInfo.VerifyStatus {
-		_, err := c.Writer.Write([]byte("success"))
-		if err != nil {
-			log.Println("易支付回调写入失败")
-		}
-	} else {
-		_, err := c.Writer.Write([]byte("fail"))
-		if err != nil {
-			log.Println("易支付回调写入失败")
-		}
+	if err != nil || !verifyInfo.VerifyStatus {
 		log.Println("易支付回调签名验证失败")
+		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
 
-	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
-		log.Println(verifyInfo)
-		LockOrder(verifyInfo.ServiceTradeNo)
-		defer UnlockOrder(verifyInfo.ServiceTradeNo)
-		topUp := model.GetTopUpByTradeNo(verifyInfo.ServiceTradeNo)
-		if topUp == nil {
-			log.Printf("易支付回调未找到订单: %v", verifyInfo)
-			return
-		}
-		if topUp.Status == "pending" {
-			topUp.Status = "success"
-			err := topUp.Update()
-			if err != nil {
-				log.Printf("易支付回调更新订单失败: %v", topUp)
-				return
-			}
-			//user, _ := model.GetUserById(topUp.UserId, false)
-			//user.Quota += topUp.Amount * 500000
-			dAmount := decimal.NewFromInt(int64(topUp.Amount))
-			dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-			quotaToAdd := int(dAmount.Mul(dQuotaPerUnit).IntPart())
-			err = model.IncreaseUserQuota(topUp.UserId, quotaToAdd, true)
-			if err != nil {
-				log.Printf("易支付回调更新用户失败: %v", topUp)
-				return
-			}
-			log.Printf("易支付回调更新用户成功 %v", topUp)
-			model.RecordLog(topUp.UserId, model.LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money))
-
-			// 充值返利
-			go model.GrantTopupCommission(topUp.UserId, topUp.Money, topUp.TradeNo)
-		}
-	} else {
-		log.Printf("易支付异常回调: %v", verifyInfo)
+	if verifyInfo.TradeStatus != epay.StatusTradeSuccess {
+		log.Printf("易支付异常回调(非成功状态): %v", verifyInfo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
 	}
+
+	log.Printf("易支付回调收到: tradeNo=%s, money=%s", verifyInfo.ServiceTradeNo, verifyInfo.Money)
+
+	LockOrder(verifyInfo.ServiceTradeNo)
+	defer UnlockOrder(verifyInfo.ServiceTradeNo)
+
+	topUp := model.GetTopUpByTradeNo(verifyInfo.ServiceTradeNo)
+	if topUp == nil {
+		log.Printf("易支付回调未找到订单: %v", verifyInfo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
+	// Fix-2: 支付方式交叉验证 — 防止其他渠道订单被易支付回调意外完成
+	if topUp.PaymentMethod == "stripe" || topUp.PaymentMethod == "creem" || topUp.PaymentMethod == "waffo" {
+		log.Printf("易支付回调订单支付方式不匹配: %s, 订单号: %s", topUp.PaymentMethod, verifyInfo.ServiceTradeNo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
+	// Vuln-1: 金额校验 — 验证回调中的实际支付金额与订单金额匹配
+	callbackMoney, parseErr := strconv.ParseFloat(verifyInfo.Money, 64)
+	if parseErr != nil {
+		log.Printf("易支付回调金额解析失败: money=%s, tradeNo=%s, err=%v", verifyInfo.Money, verifyInfo.ServiceTradeNo, parseErr)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+	orderMoney := topUp.Money
+	// 允许 0.01 的浮点误差
+	if callbackMoney < orderMoney-0.01 {
+		log.Printf("易支付回调金额不匹配: 回调金额=%.2f, 订单金额=%.2f, 订单号=%s", callbackMoney, orderMoney, verifyInfo.ServiceTradeNo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
+	if topUp.Status != "pending" {
+		// 幂等处理：已完成的订单直接返回成功，不再重复处理
+		_, _ = c.Writer.Write([]byte("success"))
+		return
+	}
+
+	// Vuln-3: 事务化 — 状态更新和额度增加在同一事务中完成
+	if err := model.CompleteEpayTopUp(verifyInfo.ServiceTradeNo); err != nil {
+		log.Printf("易支付回调完成订单失败: tradeNo=%s, err=%v", verifyInfo.ServiceTradeNo, err)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
+	// Vuln-2: 只有处理成功后才返回 success
+	_, _ = c.Writer.Write([]byte("success"))
+	log.Printf("易支付回调处理成功: tradeNo=%s", verifyInfo.ServiceTradeNo)
+
+	// 充值返利（异步，不影响回调响应）
+	go model.GrantTopupCommission(topUp.UserId, topUp.Money, topUp.TradeNo)
 }
 
 func RequestAmount(c *gin.Context) {

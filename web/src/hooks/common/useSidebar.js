@@ -38,6 +38,7 @@ export const DEFAULT_ADMIN_CONFIG = {
     log: true,
     midjourney: true,
     task: true,
+    'export-task': true,
   },
   personal: {
     enabled: true,

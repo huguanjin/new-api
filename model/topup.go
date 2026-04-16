@@ -74,6 +74,11 @@ func Recharge(referenceId string, customerId string) (err error) {
 			return errors.New("充值订单不存在")
 		}
 
+		// Fix-4: 支付方式验证 — Recharge 仅用于 stripe 回调
+		if topUp.PaymentMethod != "stripe" {
+			return errors.New("支付方式不匹配")
+		}
+
 		if topUp.Status != common.TopUpStatusPending {
 			return errors.New("充值订单状态错误")
 		}
@@ -313,6 +318,73 @@ func ManualCompleteTopUp(tradeNo string) error {
 
 	return nil
 }
+
+// CompleteEpayTopUp 易支付回调事务化完成订单
+func CompleteEpayTopUp(tradeNo string) error {
+	if tradeNo == "" {
+		return errors.New("未提供订单号")
+	}
+
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+
+	var userId int
+	var quotaToAdd int
+	var payMoney float64
+
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		topUp := &TopUp{}
+		// 行级锁，避免并发完成
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
+			return errors.New("充值订单不存在")
+		}
+
+		// 幂等处理：已成功直接返回
+		if topUp.Status == common.TopUpStatusSuccess {
+			return nil
+		}
+
+		if topUp.Status != common.TopUpStatusPending {
+			return errors.New("订单状态不是待支付，无法完成")
+		}
+
+		// 计算应充值额度：Amount 为美元数量，* QuotaPerUnit
+		dAmount := decimal.NewFromInt(topUp.Amount)
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		quotaToAdd = int(dAmount.Mul(dQuotaPerUnit).IntPart())
+		if quotaToAdd <= 0 {
+			return errors.New("无效的充值额度")
+		}
+
+		// 标记完成
+		topUp.CompleteTime = common.GetTimestamp()
+		topUp.Status = common.TopUpStatusSuccess
+		if err := tx.Save(topUp).Error; err != nil {
+			return err
+		}
+
+		// 增加用户额度
+		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error; err != nil {
+			return err
+		}
+
+		userId = topUp.UserId
+		payMoney = topUp.Money
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// 事务外记录日志
+	RecordLog(userId, LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney))
+
+	return nil
+}
+
 func RechargeCreem(referenceId string, customerEmail string, customerName string) (err error) {
 	if referenceId == "" {
 		return errors.New("未提供支付单号")

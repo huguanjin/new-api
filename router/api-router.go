@@ -117,7 +117,7 @@ func SetApiRouter(router *gin.Engine) {
 			{
 				adminRoute.GET("/", controller.GetAllUsers)
 				adminRoute.GET("/topup", controller.GetAllTopUps)
-				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
+				adminRoute.POST("/topup/complete", middleware.RootAuth(), controller.AdminCompleteTopUp)
 				adminRoute.GET("/withdrawals", controller.AdminGetWithdrawals)
 				adminRoute.POST("/withdrawal/:id/process", controller.AdminProcessWithdrawal)
 				adminRoute.GET("/search", controller.SearchUsers)
@@ -177,7 +177,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		apiRouter.POST("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		optionRoute := apiRouter.Group("/option")
-		optionRoute.Use(middleware.AdminAuth())
+		optionRoute.Use(middleware.RootAuth())
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
@@ -302,6 +302,16 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)
 		dataRoute.GET("/self", middleware.UserAuth(), controller.GetUserQuotaDates)
+
+		exportTaskRoute := apiRouter.Group("/export-task")
+		exportTaskRoute.Use(middleware.UserAuth())
+		{
+			exportTaskRoute.POST("/", controller.CreateExportTask)
+			exportTaskRoute.GET("/", controller.GetExportTasks)
+			exportTaskRoute.GET("/all", middleware.AdminAuth(), controller.GetAllExportTasks)
+			exportTaskRoute.GET("/:id/download", controller.DownloadExportTask)
+			exportTaskRoute.DELETE("/:id", controller.DeleteExportTask)
+		}
 
 		logRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
 		{
