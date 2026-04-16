@@ -29,7 +29,7 @@ import {
   Dropdown,
 } from '@douyinfe/semi-ui';
 import { IconMore } from '@douyinfe/semi-icons';
-import { renderGroup, renderNumber, renderQuota } from '../../../helpers';
+import { renderGroup, renderNumber, renderQuota, timestamp2string } from '../../../helpers';
 
 /**
  * Render user role
@@ -343,6 +343,13 @@ export const getUsersColumns = ({
       dataIndex: 'role',
       render: (text, record, index) => {
         return <div>{renderRole(text, t)}</div>;
+      },
+    },
+    {
+      title: t('注册时间'),
+      dataIndex: 'created_at',
+      render: (text) => {
+        return text > 0 ? timestamp2string(text) : '-';
       },
     },
     {

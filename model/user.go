@@ -48,6 +48,7 @@ type User struct {
 	InviterId        int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
 	CommissionBalance float64       `json:"commission_balance" gorm:"type:decimal(10,2);default:0;column:commission_balance"` // 可提现返利余额（元）
 	CommissionTotal   float64       `json:"commission_total" gorm:"type:decimal(10,2);default:0;column:commission_total"`     // 累计返利总额（元）
+	CreatedAt        int64          `json:"created_at" gorm:"autoCreateTime"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`

@@ -413,6 +413,12 @@ func GetAllTopUps(c *gin.Context) {
 		return
 	}
 
+	// 为管理员填充用户名
+	for _, t := range topups {
+		username, _ := model.GetUsernameById(t.UserId, false)
+		t.Username = username
+	}
+
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(topups)
 	common.ApiSuccess(c, pageInfo)

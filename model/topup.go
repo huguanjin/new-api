@@ -14,6 +14,7 @@ import (
 type TopUp struct {
 	Id            int     `json:"id"`
 	UserId        int     `json:"user_id" gorm:"index"`
+	Username      string  `json:"username" gorm:"-"`
 	Amount        int64   `json:"amount"`
 	Money         float64 `json:"money"`
 	TradeNo       string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
@@ -104,7 +105,7 @@ func Recharge(referenceId string, customerId string) (err error) {
 		return errors.New("充值失败，请稍后重试")
 	}
 
-	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d", logger.FormatQuota(int(quota)), topUp.Amount))
+	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d，订单号：%s", logger.FormatQuota(int(quota)), topUp.Amount, referenceId))
 
 	// 充值返利：如果该用户有邀请者且返利比例 > 0，给邀请者发放返利
 	go GrantTopupCommission(topUp.UserId, topUp.Money, topUp.TradeNo)
@@ -311,7 +312,7 @@ func ManualCompleteTopUp(tradeNo string) error {
 	}
 
 	// 事务外记录日志，避免阻塞
-	RecordLog(userId, LogTypeTopup, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney))
+	RecordLog(userId, LogTypeTopup, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f，订单号：%s", logger.FormatQuota(quotaToAdd), payMoney, tradeNo))
 
 	// 充值返利：管理员补单也触发返利
 	go GrantTopupCommission(userId, payMoney, tradeNo)
@@ -380,7 +381,7 @@ func CompleteEpayTopUp(tradeNo string) error {
 	}
 
 	// 事务外记录日志
-	RecordLog(userId, LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney))
+	RecordLog(userId, LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f，订单号：%s", logger.FormatQuota(quotaToAdd), payMoney, tradeNo))
 
 	return nil
 }
@@ -451,7 +452,7 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 		return errors.New("充值失败，请稍后重试")
 	}
 
-	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money))
+	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f，订单号：%s", quota, topUp.Money, referenceId))
 
 	// 充值返利
 	go GrantTopupCommission(topUp.UserId, topUp.Money, topUp.TradeNo)
