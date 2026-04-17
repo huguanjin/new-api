@@ -99,8 +99,9 @@ export default function Painting() {
   const [previewSrc, setPreviewSrc] = useState('');
   const [activeTab, setActiveTab] = useState('generate');
 
-  // Load painting models from localStorage
+  // Load painting models: show localStorage cache first, then fetch fresh data
   useEffect(() => {
+    // 1. Immediately show cached models to avoid blank dropdown
     try {
       const stored = localStorage.getItem('painting_models');
       if (stored) {
@@ -109,12 +110,30 @@ export default function Painting() {
           const models = parsed.map((name) => ({ value: name, label: name }));
           setPaintingModels(models);
           setModel(models[0].value);
-          return;
         }
       }
     } catch (_) {}
-    setPaintingModels([]);
-    setModel('');
+
+    // 2. Fetch latest painting models from server
+    const fetchPaintingModels = async () => {
+      try {
+        const res = await API.get('/api/status');
+        const { success, data } = res.data;
+        if (success && data) {
+          const freshModels = data.painting_models || [];
+          localStorage.setItem('painting_models', JSON.stringify(freshModels));
+          if (freshModels.length > 0) {
+            const models = freshModels.map((name) => ({ value: name, label: name }));
+            setPaintingModels(models);
+            setModel((prev) => (prev && freshModels.includes(prev) ? prev : models[0].value));
+          } else {
+            setPaintingModels([]);
+            setModel('');
+          }
+        }
+      } catch (_) {}
+    };
+    fetchPaintingModels();
   }, []);
 
   // Fetch user tokens
