@@ -466,7 +466,7 @@ func SumUsedCountByGroup(startTimestamp int64, endTimestamp int64, userId int, u
 	if username != "" {
 		tx = tx.Where("username = ?", username)
 	}
-	tx = tx.Group(logGroupCol)
+	tx = tx.Group("group")
 	if err := tx.Find(&stats).Error; err != nil {
 		return nil, err
 	}

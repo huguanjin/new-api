@@ -381,12 +381,20 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		}
 		service.AppendChannelAffinityAdminInfo(c, adminInfo)
 		other["admin_info"] = adminInfo
+		tokenKey := c.GetString("token_key")
+		if tokenKey != "" {
+			other["token_key"] = common.MaskTokenKey(tokenKey)
+		}
 		startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
 		if startTime.IsZero() {
 			startTime = time.Now()
 		}
 		useTimeSeconds := int(time.Since(startTime).Seconds())
-		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, false, userGroup, other)
+		contentStr := err.MaskSensitiveErrorWithStatusCode()
+		if tokenKey != "" {
+			contentStr += " [" + common.MaskTokenKey(tokenKey) + "]"
+		}
+		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, contentStr, tokenId, useTimeSeconds, false, userGroup, other)
 	}
 
 }

@@ -309,6 +309,31 @@ func TokenAuth() func(c *gin.Context) {
 			}
 		}
 		if err != nil {
+			// 记录令牌无效的使用日志，包含脱敏的令牌值
+			if constant.ErrorLogEnabled {
+				logUserId := 0
+				logTokenId := 0
+				logTokenName := ""
+				if token != nil {
+					logUserId = token.UserId
+					logTokenId = token.Id
+					logTokenName = token.Name
+				}
+				maskedKey := common.MaskTokenKey(key)
+				other := map[string]interface{}{
+					"token_key": maskedKey,
+				}
+				if c.Request != nil && c.Request.URL != nil {
+					other["request_path"] = c.Request.URL.Path
+				}
+				// 诊断令牌验证失败原因：对比传入key与数据库记录
+				diagnosis := model.DiagnoseTokenKey(key, token)
+				for k, v := range diagnosis {
+					other[k] = v
+				}
+				content := fmt.Sprintf("status_code=401, %s", err.Error())
+				model.RecordErrorLog(c, logUserId, 0, "", logTokenName, content, logTokenId, 0, false, "", other)
+			}
 			abortWithOpenAiMessage(c, http.StatusUnauthorized, err.Error())
 			return
 		}

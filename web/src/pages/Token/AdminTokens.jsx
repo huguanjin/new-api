@@ -67,6 +67,7 @@ const AdminTokens = () => {
         params.append('page_size', size);
         if (values.keyword) params.append('keyword', values.keyword);
         if (values.token) params.append('token', values.token);
+        if (values.username) params.append('username', values.username);
         if (values.user_id) params.append('user_id', values.user_id);
         if (values.status !== undefined && values.status !== '')
           params.append('status', values.status);
@@ -102,6 +103,7 @@ const AdminTokens = () => {
       formApiRef.current.setValues({
         keyword: '',
         token: '',
+        username: '',
         user_id: '',
         status: '',
         group: '',
@@ -355,6 +357,13 @@ const AdminTokens = () => {
               field='token'
               label={t('密钥')}
               placeholder={t('搜索密钥')}
+              prefix={<IconSearch />}
+              showClear
+            />
+            <Form.Input
+              field='username'
+              label={t('用户名')}
+              placeholder={t('搜索用户名')}
               prefix={<IconSearch />}
               showClear
             />

@@ -175,10 +175,10 @@ func ValidateUserToken(key string) (token *Token, err error) {
 			keySuffix := key[len(key)-3:]
 			return token, errors.New("该令牌额度已用尽 TokenStatusExhausted[sk-" + keyPrefix + "***" + keySuffix + "]")
 		} else if token.Status == common.TokenStatusExpired {
-			return token, errors.New("该令牌已过期")
+			return token, fmt.Errorf("该令牌已过期 [%s]", common.MaskTokenKey(key))
 		}
 		if token.Status != common.TokenStatusEnabled {
-			return token, errors.New("该令牌状态不可用")
+			return token, fmt.Errorf("该令牌状态不可用 [%s]", common.MaskTokenKey(key))
 		}
 		if token.ExpiredTime != -1 && token.ExpiredTime < common.GetTimestamp() {
 			if !common.RedisEnabled {
@@ -188,7 +188,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 					common.SysLog("failed to update token status" + err.Error())
 				}
 			}
-			return token, errors.New("该令牌已过期")
+			return token, fmt.Errorf("该令牌已过期 [%s]", common.MaskTokenKey(key))
 		}
 		if !token.UnlimitedQuota && token.RemainQuota <= 0 {
 			if !common.RedisEnabled {
@@ -207,10 +207,70 @@ func ValidateUserToken(key string) (token *Token, err error) {
 	}
 	common.SysLog("ValidateUserToken: failed to get token: " + err.Error())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.New("无效的令牌")
+		return nil, fmt.Errorf("无效的令牌 [%s]", common.MaskTokenKey(key))
 	} else {
-		return nil, errors.New("无效的令牌，数据库查询出错，请联系管理员")
+		return nil, fmt.Errorf("无效的令牌，数据库查询出错 [%s]，请联系管理员", common.MaskTokenKey(key))
 	}
+}
+
+// DiagnoseTokenKey 诊断令牌验证失败的原因。
+// 对比传入的 key 与数据库中的实际令牌，判断属于正常报错还是程序/缓存问题。
+// cachedToken 是 ValidateUserToken 返回的 token 对象（可能为 nil）。
+func DiagnoseTokenKey(key string, cachedToken *Token) map[string]interface{} {
+	result := map[string]interface{}{}
+
+	if cachedToken != nil {
+		// 令牌在缓存/DB 中找到了，但验证失败（过期/禁用/额度耗尽等）
+		result["token_match"] = true
+		result["token_id"] = cachedToken.Id
+		result["token_status"] = cachedToken.Status
+
+		if common.RedisEnabled {
+			// Redis 启用时，ValidateUserToken 可能从缓存获取了 token
+			// 直接查 DB 对比状态是否一致
+			dbToken, dbErr := GetTokenByKey(key, true)
+			if dbErr != nil {
+				result["diagnosis"] = "令牌在缓存中存在但数据库查询失败，请排查数据库问题"
+				result["db_error"] = dbErr.Error()
+			} else if dbToken.Status != cachedToken.Status {
+				result["diagnosis"] = "令牌存在但缓存状态与数据库不一致，请排查缓存同步问题"
+				result["cached_status"] = cachedToken.Status
+				result["db_status"] = dbToken.Status
+			} else if dbToken.RemainQuota != cachedToken.RemainQuota {
+				result["diagnosis"] = "令牌存在但缓存额度与数据库不一致，请排查缓存同步问题"
+				result["cached_remain_quota"] = cachedToken.RemainQuota
+				result["db_remain_quota"] = dbToken.RemainQuota
+			} else {
+				result["diagnosis"] = "令牌存在且缓存与数据库一致，验证失败属于正常状态变更"
+			}
+		} else {
+			result["diagnosis"] = "令牌存在，验证失败属于正常状态变更"
+		}
+	} else {
+		// 令牌未找到 — 检查是否存在软删除记录
+		var deletedToken Token
+		err := DB.Unscoped().Where(commonKeyCol+" = ?", key).First(&deletedToken).Error
+		if err == nil {
+			// 找到了记录
+			if deletedToken.DeletedAt.Valid {
+				result["token_match"] = true
+				result["diagnosis"] = "令牌已被删除但仍在使用，需排查调用方"
+				result["token_id"] = deletedToken.Id
+				result["deleted_at"] = deletedToken.DeletedAt.Time.Format("2006-01-02 15:04:05")
+			} else {
+				// 记录存在且未被删除，但 ValidateUserToken 仍然返回 nil — 不应发生
+				result["token_match"] = true
+				result["diagnosis"] = "令牌在数据库中存在且未删除，但验证时未找到，可能是程序问题，需开发人员排查"
+				result["token_id"] = deletedToken.Id
+				result["token_status"] = deletedToken.Status
+			}
+		} else {
+			result["token_match"] = false
+			result["diagnosis"] = "令牌不存在，属于正常报错（令牌值无效或已被篡改）"
+		}
+	}
+
+	return result
 }
 
 func GetTokenByIds(id int, userId int) (*Token, error) {
@@ -498,7 +558,7 @@ type TokenWithUser struct {
 
 // AdminSearchTokens searches tokens across all users with optional filters.
 // creatorId > 0 restricts results to tokens owned by users created by creatorId.
-func AdminSearchTokens(keyword string, tokenKey string, userIdFilter int, status int, group string, creatorId int, offset int, limit int) (tokens []*TokenWithUser, total int64, err error) {
+func AdminSearchTokens(keyword string, tokenKey string, username string, userIdFilter int, status int, group string, creatorId int, offset int, limit int) (tokens []*TokenWithUser, total int64, err error) {
 	if limit <= 0 || limit > searchHardLimit {
 		limit = searchHardLimit
 	}
@@ -530,6 +590,14 @@ func AdminSearchTokens(keyword string, tokenKey string, userIdFilter int, status
 			return nil, 0, err
 		}
 		baseQuery = baseQuery.Where("tokens."+commonKeyCol+" LIKE ? ESCAPE '!'", tokenPattern)
+	}
+
+	if username != "" {
+		usernamePattern, err := sanitizeLikePattern(username)
+		if err != nil {
+			return nil, 0, err
+		}
+		baseQuery = baseQuery.Where("users.username LIKE ? ESCAPE '!'", usernamePattern)
 	}
 
 	if userIdFilter > 0 {

@@ -408,6 +408,7 @@ func AdminSearchTokens(c *gin.Context) {
 		}
 	}
 	group := c.Query("group")
+	username := c.Query("username")
 
 	myId := c.GetInt("id")
 	myRole := c.GetInt("role")
@@ -417,7 +418,7 @@ func AdminSearchTokens(c *gin.Context) {
 	}
 
 	pageInfo := common.GetPageQuery(c)
-	tokens, total, err := model.AdminSearchTokens(keyword, tokenKey, userIdFilter, status, group, creatorId, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	tokens, total, err := model.AdminSearchTokens(keyword, tokenKey, username, userIdFilter, status, group, creatorId, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 	if err != nil {
 		common.ApiError(c, err)
 		return

@@ -116,6 +116,16 @@ func NormalizeBillingPreference(pref string) string {
 	}
 }
 
+// MaskTokenKey masks a token key for safe logging.
+// Input is the raw key without "sk-" prefix.
+// Output: "sk-abc***xyz"
+func MaskTokenKey(key string) string {
+	if len(key) < 6 {
+		return "sk-***"
+	}
+	return "sk-" + key[:3] + "***" + key[len(key)-3:]
+}
+
 // MaskEmail masks a user email to prevent PII leakage in logs
 // Returns "***masked***" if email is empty, otherwise shows only the domain part
 func MaskEmail(email string) string {
