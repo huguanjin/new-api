@@ -1332,6 +1332,29 @@ func BatchCreateUsers(c *gin.Context) {
 		return
 	}
 
+	// Validate token group
+	if req.TokenGroup != "" && req.TokenGroup != "auto" {
+		usableGroups := service.GetUserUsableGroups(req.UserGroup)
+		if service.IsMultiGroupToken(req.TokenGroup) {
+			groups := service.ParseTokenGroups(req.TokenGroup)
+			if len(groups) < 2 {
+				common.ApiError(c, fmt.Errorf("自定义多分组至少需要2个分组"))
+				return
+			}
+			for _, g := range groups {
+				if _, ok := usableGroups[g]; !ok {
+					common.ApiError(c, fmt.Errorf("无权访问分组 %s", g))
+					return
+				}
+			}
+		} else {
+			if _, ok := usableGroups[req.TokenGroup]; !ok {
+				common.ApiError(c, fmt.Errorf("无权访问分组 %s", req.TokenGroup))
+				return
+			}
+		}
+	}
+
 	// Generate tokens for each user
 	results := make([]BatchCreateUserResult, req.Count)
 	tokens := make([]*model.Token, req.Count)

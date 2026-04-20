@@ -253,11 +253,13 @@ func GetTokenByKey(key string, fromDB bool) (token *Token, err error) {
 	}()
 	if !fromDB && common.RedisEnabled {
 		// Try Redis first
-		token, err := cacheGetTokenByKey(key)
+		token, err = cacheGetTokenByKey(key)
 		if err == nil {
 			return token, nil
 		}
-		// Don't return error - fall through to DB
+		// Clear Redis error - fall through to DB
+		err = nil
+		token = nil
 	}
 	fromDB = true
 	err = DB.Where(commonKeyCol+" = ?", key).First(&token).Error
@@ -267,6 +269,14 @@ func GetTokenByKey(key string, fromDB bool) (token *Token, err error) {
 func (token *Token) Insert() error {
 	var err error
 	err = DB.Create(token).Error
+	if err == nil && common.RedisEnabled {
+		t := *token
+		gopool.Go(func() {
+			if cacheErr := cacheSetToken(t); cacheErr != nil {
+				common.SysLog("failed to set token cache after insert: " + cacheErr.Error())
+			}
+		})
+	}
 	return err
 }
 

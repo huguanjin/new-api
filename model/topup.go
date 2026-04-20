@@ -24,6 +24,22 @@ type TopUp struct {
 	Status        string  `json:"status"`
 }
 
+func SumTopUpMoneyByDate(startTimestamp int64, endTimestamp int64) (float64, error) {
+	var result struct {
+		Money float64 `gorm:"column:money"`
+	}
+	err := DB.Table("top_ups").
+		Select("COALESCE(SUM(money), 0) as money").
+		Where("status = ?", common.TopUpStatusSuccess).
+		Where("complete_time >= ?", startTimestamp).
+		Where("complete_time < ?", endTimestamp).
+		Scan(&result).Error
+	if err != nil {
+		return 0, err
+	}
+	return result.Money, nil
+}
+
 func (topUp *TopUp) Insert() error {
 	var err error
 	err = DB.Create(topUp).Error

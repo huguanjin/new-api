@@ -71,6 +71,18 @@ func (user *User) ToBaseUser() *UserBase {
 	return cache
 }
 
+func CountNewUsersByDate(startTimestamp int64, endTimestamp int64) (int64, error) {
+	var count int64
+	err := DB.Model(&User{}).
+		Where("created_at >= ?", startTimestamp).
+		Where("created_at < ?", endTimestamp).
+		Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (user *User) GetAccessToken() string {
 	if user.AccessToken == nil {
 		return ""

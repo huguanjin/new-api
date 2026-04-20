@@ -3454,6 +3454,19 @@
     "图片生成模型": "Image Generation Model",
     "分组调用统计": "Group Call Statistics",
     "新增": "New",
-    "昨日": "Yesterday"
+    "昨日": "Yesterday",
+    "管理面板": "Admin Panel",
+    "今日充值": "Today's Recharge",
+    "今日消费": "Today's Consumption",
+    "今日注册": "Today's Registration",
+    "选择日期": "Select Date",
+    "默认今天": "Default Today",
+    "默认查询今天及昨天的数据": "Query today and yesterday's data by default",
+    "模型排行": "Model Ranking",
+    "渠道排行": "Channel Ranking",
+    "用户排行": "User Ranking",
+    "错误模型排行": "Error Model Ranking",
+    "使用量": "Usage",
+    "错误次数": "Error Count"
   }
 }

@@ -53,6 +53,7 @@ import PersonalSetting from './components/settings/PersonalSetting';
 import Setup from './pages/Setup';
 
 const BatchUser = lazy(() => import('./pages/BatchUser'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const AdminTokens = lazy(() => import('./pages/Token/AdminTokens'));
 import SetupCheck from './components/layout/SetupCheck';
 
@@ -194,6 +195,16 @@ function App() {
             <AdminRoute>
               <Suspense fallback={<Loading />}>
                 <BatchUser />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/admin-panel'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading />}>
+                <AdminPanel />
               </Suspense>
             </AdminRoute>
           }

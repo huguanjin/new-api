@@ -304,6 +304,7 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)
 		dataRoute.GET("/self", middleware.UserAuth(), controller.GetUserQuotaDates)
+		dataRoute.GET("/admin/overview", middleware.AdminAuth(), controller.GetAdminOverview)
 
 		exportTaskRoute := apiRouter.Group("/export-task")
 		exportTaskRoute.Use(middleware.UserAuth())

@@ -54,6 +54,7 @@ const routerMap = {
   personal: '/console/personal',
   batch_user: '/console/batch-user',
   admin_token: '/console/admin-token',
+  admin_panel: '/console/admin-panel',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -162,6 +163,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
 
   const adminItems = useMemo(() => {
     const items = [
+      {
+        text: t('管理面板'),
+        itemKey: 'admin_panel',
+        to: '/console/admin-panel',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
       {
         text: t('渠道管理'),
         itemKey: 'channel',

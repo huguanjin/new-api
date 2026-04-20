@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -491,6 +492,123 @@ func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 	tx.Where("type = ?", LogTypeConsume).Scan(&token)
 	return token
+}
+
+func SumConsumeQuotaByDate(startTimestamp int64, endTimestamp int64) (int, error) {
+	var quota sql.NullInt64
+	tx := LOG_DB.Table("logs").Select("sum(quota)")
+	tx = tx.Where("type = ?", LogTypeConsume)
+	tx = tx.Where("created_at >= ?", startTimestamp)
+	tx = tx.Where("created_at < ?", endTimestamp)
+	if err := tx.Scan(&quota).Error; err != nil {
+		return 0, err
+	}
+	if quota.Valid {
+		return int(quota.Int64), nil
+	}
+	return 0, nil
+}
+
+type UsageRankItem struct {
+	Name  string `json:"name" gorm:"column:name"`
+	Quota int    `json:"quota" gorm:"column:quota"`
+}
+
+type ErrorRankItem struct {
+	Name  string `json:"name" gorm:"column:name"`
+	Count int    `json:"count" gorm:"column:count"`
+}
+
+func GetModelUsageRank(startTimestamp int64, endTimestamp int64, limit int) ([]UsageRankItem, error) {
+	var items []UsageRankItem
+	tx := LOG_DB.Table("logs").Select("model_name as name, sum(quota) as quota")
+	tx = tx.Where("type = ?", LogTypeConsume)
+	tx = tx.Where("created_at >= ?", startTimestamp)
+	tx = tx.Where("created_at < ?", endTimestamp)
+	tx = tx.Group("model_name").Order("quota desc").Limit(limit)
+	if err := tx.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func GetChannelUsageRank(startTimestamp int64, endTimestamp int64, limit int) ([]UsageRankItem, error) {
+	var results []struct {
+		ChannelId int `gorm:"column:channel_id"`
+		Quota     int `gorm:"column:quota"`
+	}
+	tx := LOG_DB.Table("logs").Select("channel_id, sum(quota) as quota")
+	tx = tx.Where("type = ?", LogTypeConsume)
+	tx = tx.Where("created_at >= ?", startTimestamp)
+	tx = tx.Where("created_at < ?", endTimestamp)
+	tx = tx.Group("channel_id").Order("quota desc").Limit(limit)
+	if err := tx.Find(&results).Error; err != nil {
+		return nil, err
+	}
+
+	// Resolve channel names
+	channelIds := make([]int, 0, len(results))
+	for _, r := range results {
+		if r.ChannelId != 0 {
+			channelIds = append(channelIds, r.ChannelId)
+		}
+	}
+	channelMap := make(map[int]string)
+	if len(channelIds) > 0 {
+		var channels []struct {
+			Id   int    `gorm:"column:id"`
+			Name string `gorm:"column:name"`
+		}
+		if common.MemoryCacheEnabled {
+			for _, id := range channelIds {
+				if ch, err := CacheGetChannel(id); err == nil {
+					channelMap[id] = ch.Name
+				}
+			}
+		} else {
+			if err := DB.Table("channels").Select("id, name").Where("id IN ?", channelIds).Find(&channels).Error; err == nil {
+				for _, ch := range channels {
+					channelMap[ch.Id] = ch.Name
+				}
+			}
+		}
+	}
+
+	items := make([]UsageRankItem, 0, len(results))
+	for _, r := range results {
+		name := channelMap[r.ChannelId]
+		if name == "" {
+			name = fmt.Sprintf("Channel #%d", r.ChannelId)
+		}
+		items = append(items, UsageRankItem{Name: name, Quota: r.Quota})
+	}
+	return items, nil
+}
+
+func GetUserUsageRank(startTimestamp int64, endTimestamp int64, limit int) ([]UsageRankItem, error) {
+	var items []UsageRankItem
+	tx := LOG_DB.Table("logs").Select("username as name, sum(quota) as quota")
+	tx = tx.Where("type = ?", LogTypeConsume)
+	tx = tx.Where("created_at >= ?", startTimestamp)
+	tx = tx.Where("created_at < ?", endTimestamp)
+	tx = tx.Group("username").Order("quota desc").Limit(limit)
+	if err := tx.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func GetErrorModelRank(startTimestamp int64, endTimestamp int64, limit int) ([]ErrorRankItem, error) {
+	var items []ErrorRankItem
+	tx := LOG_DB.Table("logs").Select("model_name as name, count(*) as count")
+	tx = tx.Where("type = ?", LogTypeError)
+	tx = tx.Where("created_at >= ?", startTimestamp)
+	tx = tx.Where("created_at < ?", endTimestamp)
+	tx = tx.Group("model_name").Order("count desc").Limit(limit)
+	if err := tx.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {

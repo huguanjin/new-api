@@ -349,13 +349,15 @@ func TokenAuth() func(c *gin.Context) {
 				// 自定义多分组令牌：验证每个分组的权限
 				customGroups := service.ParseTokenGroups(tokenGroup)
 				usableGroups := service.GetUserUsableGroups(userGroup)
+				keyPrefix := token.Key[:3]
+				keySuffix := token.Key[len(token.Key)-3:]
 				for _, g := range customGroups {
 					if _, ok := usableGroups[g]; !ok {
-						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", g))
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("令牌[sk-%s***%s]无权访问 %s 分组", keyPrefix, keySuffix, g))
 						return
 					}
 					if !ratio_setting.ContainsGroupRatio(g) {
-						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", g))
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("令牌[sk-%s***%s]分组 %s 已被弃用", keyPrefix, keySuffix, g))
 						return
 					}
 				}

@@ -3836,6 +3836,19 @@
     "图片生成模型": "Mô hình tạo hình ảnh",
     "分组调用统计": "Thống kê cuộc gọi theo nhóm",
     "新增": "Mới",
-    "昨日": "Hôm qua"
+    "昨日": "Hôm qua",
+    "管理面板": "Bảng quản trị",
+    "今日充值": "Nạp tiền hôm nay",
+    "今日消费": "Tiêu thụ hôm nay",
+    "今日注册": "Đăng ký hôm nay",
+    "选择日期": "Chọn ngày",
+    "默认今天": "Mặc định hôm nay",
+    "默认查询今天及昨天的数据": "Mặc định truy vấn dữ liệu hôm nay và hôm qua",
+    "模型排行": "Xếp hạng mô hình",
+    "渠道排行": "Xếp hạng kênh",
+    "用户排行": "Xếp hạng người dùng",
+    "错误模型排行": "Xếp hạng lỗi mô hình",
+    "使用量": "Sử dụng",
+    "错误次数": "Số lỗi"
   }
 }
