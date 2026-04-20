@@ -24,6 +24,7 @@ import { StatusContext } from '../../context/Status';
 
 import DashboardHeader from './DashboardHeader';
 import StatsCards from './StatsCards';
+import GroupCallStats from './GroupCallStats';
 import ChartsPanel from './ChartsPanel';
 import ApiInfoPanel from './ApiInfoPanel';
 import AnnouncementsPanel from './AnnouncementsPanel';
@@ -34,6 +35,7 @@ import SearchModal from './modals/SearchModal';
 import { useDashboardData } from '../../hooks/dashboard/useDashboardData';
 import { useDashboardStats } from '../../hooks/dashboard/useDashboardStats';
 import { useDashboardCharts } from '../../hooks/dashboard/useDashboardCharts';
+import { useGroupCallStats } from '../../hooks/dashboard/useGroupCallStats';
 
 import {
   CHART_CONFIG,
@@ -85,6 +87,10 @@ const Dashboard = () => {
     dashboardData.t,
   );
 
+  // ========== 分组调用统计 ==========
+  const { groupCallStats, groupCallLoading, loadGroupCallStats } =
+    useGroupCallStats(dashboardData.isAdminUser);
+
   // ========== 数据处理 ==========
   const initChart = async () => {
     await dashboardData.loadQuotaData().then((data) => {
@@ -93,6 +99,7 @@ const Dashboard = () => {
       }
     });
     await dashboardData.loadUptimeData();
+    await loadGroupCallStats();
   };
 
   const handleRefresh = async () => {
@@ -100,6 +107,7 @@ const Dashboard = () => {
     if (data && data.length > 0) {
       dashboardCharts.updateChartData(data);
     }
+    await loadGroupCallStats();
   };
 
   const handleSearchConfirm = async () => {
@@ -168,6 +176,12 @@ const Dashboard = () => {
         getTrendSpec={getTrendSpec}
         CARD_PROPS={CARD_PROPS}
         CHART_CONFIG={CHART_CONFIG}
+      />
+
+      <GroupCallStats
+        groupCallStats={groupCallStats}
+        groupCallLoading={groupCallLoading}
+        CARD_PROPS={CARD_PROPS}
       />
 
       {/* API信息和图表面板 */}

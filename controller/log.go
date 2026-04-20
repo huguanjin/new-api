@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -146,6 +147,47 @@ func GetLogsSelfStat(c *gin.Context) {
 		},
 	})
 	return
+}
+
+func getGroupCallStatData(userId int, username string) (gin.H, error) {
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Unix()
+	tomorrowStart := todayStart + 86400
+	yesterdayStart := todayStart - 86400
+
+	todayStats, err := model.SumUsedCountByGroup(todayStart, tomorrowStart, userId, username)
+	if err != nil {
+		return nil, err
+	}
+	yesterdayStats, err := model.SumUsedCountByGroup(yesterdayStart, todayStart, userId, username)
+	if err != nil {
+		return nil, err
+	}
+
+	return gin.H{
+		"today":     todayStats,
+		"yesterday": yesterdayStats,
+	}, nil
+}
+
+func GetGroupCallStat(c *gin.Context) {
+	username := c.Query("username")
+	data, err := getGroupCallStatData(0, username)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, data)
+}
+
+func GetGroupCallSelfStat(c *gin.Context) {
+	userId := c.GetInt("id")
+	data, err := getGroupCallStatData(userId, "")
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, data)
 }
 
 func DeleteHistoryLogs(c *gin.Context) {

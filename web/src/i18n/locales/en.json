@@ -3451,6 +3451,9 @@
     "指定后，该模型将出现在小红书页面对应的模型选择列表中": "Once assigned, this model will appear in the RedBook page model selection list",
     "无": "None",
     "文本生成模型": "Text Generation Model",
-    "图片生成模型": "Image Generation Model"
+    "图片生成模型": "Image Generation Model",
+    "分组调用统计": "Group Call Statistics",
+    "新增": "New",
+    "昨日": "Yesterday"
   }
 }

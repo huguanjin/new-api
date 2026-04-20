@@ -3281,6 +3281,9 @@
     "内容页": "Contenu",
     "小红书模型角色": "Rôle du modèle RedBook",
     "文本生成模型": "Modèle de génération de texte",
-    "图片生成模型": "Modèle de génération d'images"
+    "图片生成模型": "Modèle de génération d'images",
+    "分组调用统计": "Statistiques d'appels par groupe",
+    "新增": "Nouveau",
+    "昨日": "Hier"
   }
 }

@@ -444,6 +444,34 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	return stat, nil
 }
 
+type GroupCallStat struct {
+	Group string `json:"group"`
+	Count int    `json:"count"`
+}
+
+func SumUsedCountByGroup(startTimestamp int64, endTimestamp int64, userId int, username string) ([]GroupCallStat, error) {
+	var stats []GroupCallStat
+	tx := LOG_DB.Table("logs").Select(logGroupCol + ", count(*) as count")
+	tx = tx.Where("type = ?", LogTypeConsume)
+	if startTimestamp != 0 {
+		tx = tx.Where("created_at >= ?", startTimestamp)
+	}
+	if endTimestamp != 0 {
+		tx = tx.Where("created_at < ?", endTimestamp)
+	}
+	if userId != 0 {
+		tx = tx.Where("user_id = ?", userId)
+	}
+	if username != "" {
+		tx = tx.Where("username = ?", username)
+	}
+	tx = tx.Group(logGroupCol)
+	if err := tx.Find(&stats).Error; err != nil {
+		return nil, err
+	}
+	return stats, nil
+}
+
 func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string) (token int) {
 	tx := LOG_DB.Table("logs").Select("ifnull(sum(prompt_tokens),0) + ifnull(sum(completion_tokens),0)")
 	if username != "" {
