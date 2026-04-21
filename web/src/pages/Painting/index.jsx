@@ -31,6 +31,11 @@ import { useTranslation } from 'react-i18next';
 import { usePaintingGenerate } from '../../hooks/painting/usePaintingGenerate';
 import { usePaintingGallery } from '../../hooks/painting/usePaintingGallery';
 import { API } from '../../helpers/api';
+import ProductRetouchTool from './ProductRetouchTool';
+import WatermarkRemoveTool from './WatermarkRemoveTool';
+import ProductReplaceTool from './ProductReplaceTool';
+import ClothingReplaceTool from './ClothingReplaceTool';
+import SmartCutoutTool from './SmartCutoutTool';
 
 const { Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -256,7 +261,7 @@ export default function Painting() {
       </div>
 
       {/* Tab Switch */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <Button
           theme={activeTab === 'generate' ? 'solid' : 'light'}
           onClick={() => setActiveTab('generate')}
@@ -268,6 +273,41 @@ export default function Painting() {
           onClick={() => setActiveTab('gallery')}
         >
           {t('画廊')} ({galleryImages.length})
+        </Button>
+        <Button
+          theme={activeTab === 'retouch' ? 'solid' : 'light'}
+          type={activeTab === 'retouch' ? 'primary' : 'tertiary'}
+          onClick={() => setActiveTab('retouch')}
+        >
+          {t('产品精修')}
+        </Button>
+        <Button
+          theme={activeTab === 'watermark' ? 'solid' : 'light'}
+          type={activeTab === 'watermark' ? 'primary' : 'tertiary'}
+          onClick={() => setActiveTab('watermark')}
+        >
+          {t('图片去水印')}
+        </Button>
+        <Button
+          theme={activeTab === 'cutout' ? 'solid' : 'light'}
+          type={activeTab === 'cutout' ? 'primary' : 'tertiary'}
+          onClick={() => setActiveTab('cutout')}
+        >
+          {t('智能抠图')}
+        </Button>
+        <Button
+          theme={activeTab === 'replace' ? 'solid' : 'light'}
+          type={activeTab === 'replace' ? 'primary' : 'tertiary'}
+          onClick={() => setActiveTab('replace')}
+        >
+          {t('商品替换')}
+        </Button>
+        <Button
+          theme={activeTab === 'clothing' ? 'solid' : 'light'}
+          type={activeTab === 'clothing' ? 'primary' : 'tertiary'}
+          onClick={() => setActiveTab('clothing')}
+        >
+          {t('服装替换')}
         </Button>
       </div>
 
@@ -583,6 +623,68 @@ export default function Painting() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Tool Tabs */}
+      {activeTab === 'retouch' && (
+        <ProductRetouchTool
+          model={model}
+          setModel={setModel}
+          tokenKey={tokenKey}
+          setTokenKey={setTokenKey}
+          tokens={tokens}
+          tokensLoading={tokensLoading}
+          paintingModels={paintingModels}
+          saveImage={saveImage}
+        />
+      )}
+      {activeTab === 'watermark' && (
+        <WatermarkRemoveTool
+          model={model}
+          setModel={setModel}
+          tokenKey={tokenKey}
+          setTokenKey={setTokenKey}
+          tokens={tokens}
+          tokensLoading={tokensLoading}
+          paintingModels={paintingModels}
+          saveImage={saveImage}
+        />
+      )}
+      {activeTab === 'cutout' && (
+        <SmartCutoutTool
+          model={model}
+          setModel={setModel}
+          tokenKey={tokenKey}
+          setTokenKey={setTokenKey}
+          tokens={tokens}
+          tokensLoading={tokensLoading}
+          paintingModels={paintingModels}
+          saveImage={saveImage}
+        />
+      )}
+      {activeTab === 'replace' && (
+        <ProductReplaceTool
+          model={model}
+          setModel={setModel}
+          tokenKey={tokenKey}
+          setTokenKey={setTokenKey}
+          tokens={tokens}
+          tokensLoading={tokensLoading}
+          paintingModels={paintingModels}
+          saveImage={saveImage}
+        />
+      )}
+      {activeTab === 'clothing' && (
+        <ClothingReplaceTool
+          model={model}
+          setModel={setModel}
+          tokenKey={tokenKey}
+          setTokenKey={setTokenKey}
+          tokens={tokens}
+          tokensLoading={tokensLoading}
+          paintingModels={paintingModels}
+          saveImage={saveImage}
+        />
       )}
 
       {/* Image Preview Modal */}
