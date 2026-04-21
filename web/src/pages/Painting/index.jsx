@@ -36,6 +36,7 @@ import WatermarkRemoveTool from './WatermarkRemoveTool';
 import ProductReplaceTool from './ProductReplaceTool';
 import ClothingReplaceTool from './ClothingReplaceTool';
 import SmartCutoutTool from './SmartCutoutTool';
+import ModelGenerateTool from './ModelGenerateTool';
 
 const { Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -308,6 +309,13 @@ export default function Painting() {
           onClick={() => setActiveTab('clothing')}
         >
           {t('服装替换')}
+        </Button>
+        <Button
+          theme={activeTab === 'model' ? 'solid' : 'light'}
+          type={activeTab === 'model' ? 'primary' : 'tertiary'}
+          onClick={() => setActiveTab('model')}
+        >
+          {t('模特生成')}
         </Button>
       </div>
 
@@ -676,6 +684,19 @@ export default function Painting() {
       )}
       {activeTab === 'clothing' && (
         <ClothingReplaceTool
+          model={model}
+          setModel={setModel}
+          tokenKey={tokenKey}
+          setTokenKey={setTokenKey}
+          tokens={tokens}
+          tokensLoading={tokensLoading}
+          paintingModels={paintingModels}
+          saveImage={saveImage}
+        />
+      )}
+
+      {activeTab === 'model' && (
+        <ModelGenerateTool
           model={model}
           setModel={setModel}
           tokenKey={tokenKey}
