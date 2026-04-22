@@ -158,7 +158,7 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 
 // DoResponse reads the grsai stream until status="succeeded" or "failed",
 // then writes an OpenAI-compatible image response to the client.
-func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, _ *relaycommon.RelayInfo) (usage any, apiErr *types.NewAPIError) {
+func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, apiErr *types.NewAPIError) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -200,15 +200,25 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, _ *relaycommon
 	}
 
 	if last.Status == "failed" || last.Status == "error" {
-		msg := last.FailureReason
-		if msg == "" {
-			msg = last.Error
-		}
-		if msg == "" {
-			msg = "image generation failed"
+		var humanMsg string
+		switch last.FailureReason {
+		case "output_moderation":
+			humanMsg = "image generation failed: output content violated moderation policy"
+		case "input_moderation":
+			humanMsg = "image generation failed: input prompt violated moderation policy"
+		case "error":
+			humanMsg = "image generation failed: upstream error, please retry"
+		default:
+			if last.FailureReason != "" {
+				humanMsg = "image generation failed: " + last.FailureReason
+			} else if last.Error != "" {
+				humanMsg = "image generation failed: " + last.Error
+			} else {
+				humanMsg = "image generation failed"
+			}
 		}
 		return nil, types.NewOpenAIError(
-			fmt.Errorf("%s", msg),
+			fmt.Errorf("%s", humanMsg),
 			types.ErrorCodeInvalidRequest,
 			http.StatusBadRequest,
 		)
@@ -250,6 +260,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, _ *relaycommon
 		)
 	}
 
+	info.SetFirstResponseTime()
 	c.JSON(http.StatusOK, imageResponse{
 		Created: time.Now().Unix(),
 		Data:    items,

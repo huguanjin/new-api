@@ -183,7 +183,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeCodex:          "Codex",
 	ChannelTypeHUBAGI:         "HUBAGI",
 	ChannelTypeSeedance:       "Seedance",
-	ChannelTypeGrsai:          "Grsai Image",
+	ChannelTypeGrsai:          "GPT Image",
 }
 
 func GetChannelTypeName(channelType int) string {
