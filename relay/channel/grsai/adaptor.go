@@ -266,10 +266,11 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		Data:    items,
 	})
 
-	// Return a Usage with TotalTokens = number of images, so image_handler billing works.
+	// PromptTokens=0 lets ImageHelper fill it with imageN as a fallback.
+	// CompletionTokens = number of output images, shown in the "输出" log column.
 	return &dto.Usage{
-		PromptTokens:     len(items),
-		CompletionTokens: 0,
+		PromptTokens:     0,
+		CompletionTokens: len(items),
 		TotalTokens:      len(items),
 	}, nil
 }
