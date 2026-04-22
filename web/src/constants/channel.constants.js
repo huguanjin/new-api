@@ -199,6 +199,11 @@ export const CHANNEL_OPTIONS = [
     color: 'teal',
     label: 'Seedance',
   },
+  {
+    value: 60,
+    color: 'purple',
+    label: 'Grsai Image',
+  },
 ];
 
 export const MODEL_TABLE_PAGE_SIZE = 10;

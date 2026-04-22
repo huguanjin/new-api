@@ -56,6 +56,8 @@ export const DEFAULT_ADMIN_CONFIG = {
     subscription: true,
     withdrawal: true,
     batch_user: true,
+    admin_token: true,
+    site_balance: true,
     setting: true,
   },
 };

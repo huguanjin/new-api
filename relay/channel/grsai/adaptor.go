@@ -1,0 +1,302 @@
+package grsai
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/relay/channel"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/types"
+
+	"github.com/gin-gonic/gin"
+)
+
+type Adaptor struct {
+}
+
+// ── grsai request / response types ───────────────────────────────────────────
+
+type drawRequest struct {
+	Model        string   `json:"model"`
+	Prompt       string   `json:"prompt"`
+	Size         string   `json:"size,omitempty"`
+	Urls         []string `json:"urls,omitempty"`
+	ShutProgress bool     `json:"shutProgress"`
+}
+
+type drawResult struct {
+	URL string `json:"url"`
+}
+
+type streamChunk struct {
+	ID            string       `json:"id"`
+	Progress      int          `json:"progress"`
+	Results       []drawResult `json:"results"`
+	Status        string       `json:"status"`
+	FailureReason string       `json:"failure_reason"`
+	Error         string       `json:"error"`
+}
+
+// ── Adaptor interface ─────────────────────────────────────────────────────────
+
+func (a *Adaptor) Init(_ *relaycommon.RelayInfo) {}
+
+func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	base := strings.TrimRight(info.ChannelBaseUrl, "/")
+	return base + "/v1/draw/completions", nil
+}
+
+func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
+	channel.SetupApiRequestHeader(info, c, req)
+	req.Set("Authorization", "Bearer "+info.ApiKey)
+	req.Set("Content-Type", "application/json")
+	return nil
+}
+
+func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	model := request.Model
+	if model == "" {
+		model = "gpt-image-2"
+	}
+	body := drawRequest{
+		Model:        model,
+		Prompt:       request.Prompt,
+		Size:         convertSize(request.Size),
+		ShutProgress: false,
+	}
+
+	if info.RelayMode == relayconstant.RelayModeImagesEdits {
+		// Collect reference image URLs for grsai's urls[] field.
+		var imageURLs []string
+
+		// Case 1: multipart/form-data — read uploaded files as base64 data URIs
+		mf := c.Request.MultipartForm
+		if mf != nil && mf.File != nil {
+			var fileHeaders []*multipart.FileHeader
+			for _, key := range []string{"image", "image[]", "images"} {
+				if fhs, ok := mf.File[key]; ok {
+					fileHeaders = append(fileHeaders, fhs...)
+				}
+			}
+			for fieldName, fhs := range mf.File {
+				if strings.HasPrefix(fieldName, "image[") {
+					fileHeaders = append(fileHeaders, fhs...)
+				}
+			}
+			for _, fh := range fileHeaders {
+				f, err := fh.Open()
+				if err != nil {
+					continue
+				}
+				data, readErr := io.ReadAll(f)
+				_ = f.Close()
+				if readErr != nil || len(data) == 0 {
+					continue
+				}
+				mime := http.DetectContentType(data)
+				b64 := base64.StdEncoding.EncodeToString(data)
+				imageURLs = append(imageURLs, "data:"+mime+";base64,"+b64)
+			}
+		}
+
+		// Case 2: JSON body with extra "urls" field — {"urls": ["https://..."]}
+		if len(imageURLs) == 0 {
+			if urlsRaw, ok := request.Extra["urls"]; ok {
+				var urls []string
+				if err := common.Unmarshal(urlsRaw, &urls); err == nil {
+					imageURLs = urls
+				}
+			}
+		}
+
+		if len(imageURLs) == 0 {
+			return nil, errors.New("image edit request requires at least one reference image (upload a file or pass urls[] in JSON body)")
+		}
+		body.Urls = imageURLs
+	}
+
+	return body, nil
+}
+
+// convertSize maps OpenAI pixel sizes to grsai ratio strings.
+// If the value already looks like a ratio (contains ":"), pass it through.
+func convertSize(size string) string {
+	if strings.Contains(size, ":") {
+		return size
+	}
+	switch size {
+	case "1024x1024", "512x512", "256x256":
+		return "1:1"
+	case "1792x1024", "1536x1024":
+		return "3:2"
+	case "1024x1792", "1024x1536":
+		return "2:3"
+	case "1280x720":
+		return "16:9"
+	case "720x1280":
+		return "9:16"
+	default:
+		return "auto"
+	}
+}
+
+func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
+	return channel.DoApiRequest(a, c, info, requestBody)
+}
+
+// DoResponse reads the grsai stream until status="succeeded" or "failed",
+// then writes an OpenAI-compatible image response to the client.
+func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, _ *relaycommon.RelayInfo) (usage any, apiErr *types.NewAPIError) {
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("grsai upstream error %d: %s", resp.StatusCode, string(body)),
+			types.ErrorCodeInvalidRequest,
+			resp.StatusCode,
+		)
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	var last streamChunk
+	for scanner.Scan() {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+		if bytes.HasPrefix(line, []byte("data: ")) {
+			line = bytes.TrimPrefix(line, []byte("data: "))
+			line = bytes.TrimSpace(line)
+		}
+		if len(line) == 0 || bytes.Equal(line, []byte("[DONE]")) {
+			continue
+		}
+		var chunk streamChunk
+		if err := common.Unmarshal(line, &chunk); err != nil {
+			continue
+		}
+		last = chunk
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("failed to read grsai stream: %w", err),
+			types.ErrorCodeDoRequestFailed,
+			http.StatusInternalServerError,
+		)
+	}
+
+	if last.Status == "failed" || last.Status == "error" {
+		msg := last.FailureReason
+		if msg == "" {
+			msg = last.Error
+		}
+		if msg == "" {
+			msg = "image generation failed"
+		}
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("%s", msg),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+		)
+	}
+
+	if (last.Status != "succeeded" && last.Status != "success") || len(last.Results) == 0 {
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("grsai returned no results"),
+			types.ErrorCodeDoRequestFailed,
+			http.StatusInternalServerError,
+		)
+	}
+
+	// Download each result image and return as b64_json (frontend requires base64)
+	type imageItem struct {
+		B64Json string `json:"b64_json"`
+	}
+	type imageResponse struct {
+		Created int64       `json:"created"`
+		Data    []imageItem `json:"data"`
+	}
+	items := make([]imageItem, 0, len(last.Results))
+	for _, r := range last.Results {
+		if r.URL == "" {
+			continue
+		}
+		_, b64, err := service.GetImageFromUrl(r.URL)
+		if err != nil {
+			common.LogError(c.Request.Context(), fmt.Sprintf("grsai: failed to download image %s: %v", r.URL, err))
+			continue
+		}
+		items = append(items, imageItem{B64Json: b64})
+	}
+	if len(items) == 0 {
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("grsai: failed to download any result images"),
+			types.ErrorCodeDoRequestFailed,
+			http.StatusInternalServerError,
+		)
+	}
+
+	c.JSON(http.StatusOK, imageResponse{
+		Created: time.Now().Unix(),
+		Data:    items,
+	})
+
+	// Return a Usage with TotalTokens = number of images, so image_handler billing works.
+	return &dto.Usage{
+		PromptTokens:     len(items),
+		CompletionTokens: 0,
+		TotalTokens:      len(items),
+	}, nil
+}
+
+// ── Unsupported methods ───────────────────────────────────────────────────────
+
+func (a *Adaptor) ConvertOpenAIRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ *dto.GeneralOpenAIRequest) (any, error) {
+	return nil, errors.New("grsai channel only supports image generation")
+}
+
+func (a *Adaptor) ConvertAudioRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ dto.AudioRequest) (io.Reader, error) {
+	return nil, errors.New("not available")
+}
+
+func (a *Adaptor) ConvertEmbeddingRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ dto.EmbeddingRequest) (any, error) {
+	return nil, errors.New("not available")
+}
+
+func (a *Adaptor) ConvertRerankRequest(_ *gin.Context, _ int, _ dto.RerankRequest) (any, error) {
+	return nil, errors.New("not available")
+}
+
+func (a *Adaptor) ConvertOpenAIResponsesRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ dto.OpenAIResponsesRequest) (any, error) {
+	return nil, errors.New("not available")
+}
+
+func (a *Adaptor) ConvertClaudeRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ *dto.ClaudeRequest) (any, error) {
+	return nil, errors.New("not available")
+}
+
+func (a *Adaptor) ConvertGeminiRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ *dto.GeminiChatRequest) (any, error) {
+	return nil, errors.New("not available")
+}
+
+func (a *Adaptor) GetModelList() []string {
+	return ModelList
+}
+
+func (a *Adaptor) GetChannelName() string {
+	return ChannelName
+}

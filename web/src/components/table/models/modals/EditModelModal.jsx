@@ -171,8 +171,8 @@ const EditModelModal = (props) => {
         // 处理status/sync_official，将数字转为布尔值
         data.status = data.status === 1;
         data.sync_official = (data.sync_official ?? 1) === 1;
-        // 处理image_provider，将字符串转为布尔值供Switch使用
-        data.image_provider = !!data.image_provider;
+        // 处理image_provider：兼容旧值 "painting" → "gemini"
+        if (data.image_provider === 'painting') data.image_provider = 'gemini';
         // red_book_provider 保持字符串原值
         if (formApiRef.current) {
           formApiRef.current.setValues({ ...getInitValues(), ...data });
@@ -221,7 +221,7 @@ const EditModelModal = (props) => {
         endpoints: values.endpoints || '',
         status: values.status ? 1 : 0,
         sync_official: values.sync_official ? 1 : 0,
-        image_provider: values.image_provider ? 'painting' : '',
+        image_provider: values.image_provider || '',
         red_book_provider: values.red_book_provider || '',
       };
 
@@ -488,14 +488,18 @@ const EditModelModal = (props) => {
                     </Col>
                   )}
                   <Col span={24}>
-                    <Form.Switch
+                    <Form.Select
                       field='image_provider'
-                      label={t('绘画模型')}
-                      extraText={t(
-                        '开启后，该模型将出现在绘画页面的模型下拉列表中',
-                      )}
-                      checkedText={t('是')}
-                      uncheckedText={t('否')}
+                      label={t('绘画接口')}
+                      placeholder={t('不启用')}
+                      optionList={[
+                        { label: t('不启用'), value: '' },
+                        { label: 'Gemini (Imagen)', value: 'gemini' },
+                        { label: 'GPT Image', value: 'openai_image' },
+                      ]}
+                      showClear
+                      extraText={t('设置后，该模型将出现在绘画页面的模型下拉列表中')}
+                      style={{ width: '100%' }}
                     />
                   </Col>
                   <Col span={24}>

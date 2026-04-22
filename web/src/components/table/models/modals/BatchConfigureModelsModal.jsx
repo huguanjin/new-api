@@ -98,7 +98,7 @@ const BatchConfigureModelsModal = ({
       data.video_provider = values.video_provider;
     }
     if (values.image_provider !== undefined && values.image_provider !== null) {
-      data.image_provider = values.image_provider ? 'painting' : '';
+      data.image_provider = values.image_provider;
     }
     if (values.red_book_provider !== undefined && values.red_book_provider !== null) {
       data.red_book_provider = values.red_book_provider;
@@ -318,12 +318,18 @@ const BatchConfigureModelsModal = ({
             />
           )}
 
-          <Form.Switch
+          <Form.Select
             field='image_provider'
-            label={t('绘画模型')}
-            extraText={t('开启后，所选模型将出现在绘画页面的模型下拉列表中')}
-            checkedText={t('是')}
-            uncheckedText={t('否')}
+            label={t('绘画接口')}
+            placeholder={t('不修改')}
+            optionList={[
+              { label: t('不启用'), value: '' },
+              { label: 'Gemini (Imagen)', value: 'gemini' },
+              { label: 'GPT Image', value: 'openai_image' },
+            ]}
+            showClear
+            extraText={t('设置后，所选模型将出现在绘画页面的模型下拉列表中')}
+            style={{ width: '100%' }}
           />
 
           <Form.Select

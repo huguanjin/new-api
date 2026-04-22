@@ -57,6 +57,7 @@ const (
 	ChannelTypeCodex          = 57
 	ChannelTypeHUBAGI         = 58
 	ChannelTypeSeedance       = 59
+	ChannelTypeGrsai          = 60
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -120,8 +121,9 @@ var ChannelBaseURLs = []string{
 	"https://api.openai.com",                    //55
 	"https://api.replicate.com",                 //56
 	"https://chatgpt.com",                       //57
-	"https://aifast.site",                        //58
-	"",                                           //59
+	"https://aifast.site",                       //58
+	"",                                          //59
+	"https://grsaiapi.com",                      //60
 }
 
 var ChannelTypeNames = map[int]string{
@@ -181,6 +183,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeCodex:          "Codex",
 	ChannelTypeHUBAGI:         "HUBAGI",
 	ChannelTypeSeedance:       "Seedance",
+	ChannelTypeGrsai:          "Grsai Image",
 }
 
 func GetChannelTypeName(channelType int) string {

@@ -197,10 +197,10 @@ func getVideoProviderModels() map[string][]string {
 	return result
 }
 
-func getPaintingModels() []string {
+func getPaintingModels() []model.PaintingModelInfo {
 	result, err := model.GetPaintingModels()
 	if err != nil {
-		return []string{}
+		return []model.PaintingModelInfo{}
 	}
 	return result
 }

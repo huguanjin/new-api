@@ -107,22 +107,32 @@ func GetModelsByVideoProvider() (map[string][]string, error) {
 	return m, nil
 }
 
-func GetPaintingModels() ([]string, error) {
+type PaintingModelInfo struct {
+	Name     string `json:"name"`
+	Provider string `json:"provider"`
+}
+
+func GetPaintingModels() ([]PaintingModelInfo, error) {
 	var results []struct {
-		ModelName string
+		ModelName     string
+		ImageProvider string
 	}
 	err := DB.Model(&Model{}).
-		Select("model_name").
+		Select("model_name, image_provider").
 		Where("image_provider <> '' AND status = 1").
 		Find(&results).Error
 	if err != nil {
 		return nil, err
 	}
-	models := make([]string, 0, len(results))
+	infos := make([]PaintingModelInfo, 0, len(results))
 	for _, r := range results {
-		models = append(models, r.ModelName)
+		provider := r.ImageProvider
+		if provider == "painting" {
+			provider = "gemini" // backward compatibility
+		}
+		infos = append(infos, PaintingModelInfo{Name: r.ModelName, Provider: provider})
 	}
-	return models, nil
+	return infos, nil
 }
 
 func GetRedBookTextModels() ([]string, error) {

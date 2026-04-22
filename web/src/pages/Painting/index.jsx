@@ -29,6 +29,7 @@ import {
 } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { usePaintingGenerate } from '../../hooks/painting/usePaintingGenerate';
+import { usePaintingEdit } from '../../hooks/painting/usePaintingEdit';
 import { usePaintingGallery } from '../../hooks/painting/usePaintingGallery';
 import { API } from '../../helpers/api';
 import ProductRetouchTool from './ProductRetouchTool';
@@ -37,6 +38,7 @@ import ProductReplaceTool from './ProductReplaceTool';
 import ClothingReplaceTool from './ClothingReplaceTool';
 import SmartCutoutTool from './SmartCutoutTool';
 import ModelGenerateTool from './ModelGenerateTool';
+import ImageEditTool from './ImageEditTool';
 
 const { Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -55,6 +57,13 @@ const IMAGE_SIZES = [
   { value: '1K', label: '1K' },
   { value: '2K', label: '2K' },
   { value: '4K', label: '4K' },
+];
+
+const GPT_IMAGE_SIZES = [
+  { value: '1024x1024', label: '1024×1024' },
+  { value: '1536x1024', label: '1536×1024 横版' },
+  { value: '1024x1536', label: '1024×1536 竖版' },
+  { value: 'auto', label: 'auto' },
 ];
 
 function fileToBase64(file) {
@@ -99,11 +108,14 @@ export default function Painting() {
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [imageSize, setImageSize] = useState('1K');
+  const [gptImageSize, setGptImageSize] = useState('1024x1024');
   const [referenceImages, setReferenceImages] = useState([]);
   const [savingIndex, setSavingIndex] = useState(-1);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewSrc, setPreviewSrc] = useState('');
   const [activeTab, setActiveTab] = useState('generate');
+
+  const selectedProvider = paintingModels.find((m) => m.value === model)?.provider || 'gemini';
 
   // Load painting models: show localStorage cache first, then fetch fresh data
   useEffect(() => {
@@ -113,7 +125,11 @@ export default function Painting() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const models = parsed.map((name) => ({ value: name, label: name }));
+          const models = parsed.map((item) =>
+            typeof item === 'string'
+              ? { value: item, label: item, provider: 'gemini' }
+              : { value: item.name, label: item.name, provider: item.provider || 'gemini' },
+          );
           setPaintingModels(models);
           setModel(models[0].value);
         }
@@ -129,9 +145,13 @@ export default function Painting() {
           const freshModels = data.painting_models || [];
           localStorage.setItem('painting_models', JSON.stringify(freshModels));
           if (freshModels.length > 0) {
-            const models = freshModels.map((name) => ({ value: name, label: name }));
+            const models = freshModels.map((item) =>
+              typeof item === 'string'
+                ? { value: item, label: item, provider: 'gemini' }
+                : { value: item.name, label: item.name, provider: item.provider || 'gemini' },
+            );
             setPaintingModels(models);
-            setModel((prev) => (prev && freshModels.includes(prev) ? prev : models[0].value));
+            setModel((prev) => (prev && models.some((m) => m.value === prev) ? prev : models[0].value));
           } else {
             setPaintingModels([]);
             setModel('');
@@ -195,8 +215,9 @@ export default function Painting() {
       model,
       tokenKey,
       aspectRatio,
-      imageSize,
+      imageSize: selectedProvider === 'openai_image' ? gptImageSize : imageSize,
       referenceImages,
+      imageProvider: selectedProvider,
     });
   }, [prompt, model, tokenKey, aspectRatio, imageSize, referenceImages, generate, t]);
 
@@ -268,6 +289,12 @@ export default function Painting() {
           onClick={() => setActiveTab('generate')}
         >
           {t('图片生成')}
+        </Button>
+        <Button
+          theme={activeTab === 'edit' ? 'solid' : 'light'}
+          onClick={() => setActiveTab('edit')}
+        >
+          {t('图片编辑')}
         </Button>
         <Button
           theme={activeTab === 'gallery' ? 'solid' : 'light'}
@@ -353,26 +380,40 @@ export default function Painting() {
                     }))}
                   />
                 </div>
-                {/* Aspect Ratio */}
-                <div style={{ flex: '1 1 140px' }}>
-                  <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>{t('宽高比')}</Text>
-                  <Select
-                    value={aspectRatio}
-                    onChange={setAspectRatio}
-                    style={{ width: '100%' }}
-                    optionList={ASPECT_RATIOS}
-                  />
-                </div>
+                {/* Aspect Ratio (Gemini only) */}
+                {selectedProvider !== 'openai_image' && (
+                  <div style={{ flex: '1 1 140px' }}>
+                    <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>{t('宽高比')}</Text>
+                    <Select
+                      value={aspectRatio}
+                      onChange={setAspectRatio}
+                      style={{ width: '100%' }}
+                      optionList={ASPECT_RATIOS}
+                    />
+                  </div>
+                )}
                 {/* Image Size */}
-                <div style={{ flex: '1 1 100px' }}>
-                  <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>{t('图片尺寸')}</Text>
-                  <Select
-                    value={imageSize}
-                    onChange={setImageSize}
-                    style={{ width: '100%' }}
-                    optionList={IMAGE_SIZES}
-                  />
-                </div>
+                {selectedProvider !== 'openai_image' ? (
+                  <div style={{ flex: '1 1 100px' }}>
+                    <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>{t('图片尺寸')}</Text>
+                    <Select
+                      value={imageSize}
+                      onChange={setImageSize}
+                      style={{ width: '100%' }}
+                      optionList={IMAGE_SIZES}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ flex: '1 1 160px' }}>
+                    <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>{t('图片尺寸')}</Text>
+                    <Select
+                      value={gptImageSize}
+                      onChange={setGptImageSize}
+                      style={{ width: '100%' }}
+                      optionList={GPT_IMAGE_SIZES}
+                    />
+                  </div>
+                )}
               </div>
             </Card>
 
@@ -634,6 +675,18 @@ export default function Painting() {
       )}
 
       {/* Tool Tabs */}
+      {activeTab === 'edit' && (
+        <ImageEditTool
+          model={model}
+          setModel={setModel}
+          tokenKey={tokenKey}
+          setTokenKey={setTokenKey}
+          tokens={tokens}
+          tokensLoading={tokensLoading}
+          paintingModels={paintingModels}
+          saveImage={saveImage}
+        />
+      )}
       {activeTab === 'retouch' && (
         <ProductRetouchTool
           model={model}

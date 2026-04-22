@@ -7,12 +7,46 @@ export function usePaintingGenerate() {
   const [error, setError] = useState(null);
 
   const generate = useCallback(
-    async ({ prompt, model, tokenKey, aspectRatio, imageSize, referenceImages }) => {
+    async ({ prompt, model, tokenKey, aspectRatio, imageSize, referenceImages, imageProvider }) => {
       setLoading(true);
       setError(null);
       setResult(null);
 
       try {
+        // GPT Image path
+        if (imageProvider === 'openai_image') {
+          const body = {
+            prompt,
+            model,
+            n: 1,
+            size: imageSize || '1024x1024',
+            response_format: 'b64_json',
+          };
+          const serverAddress = getServerAddress();
+          const response = await fetch(`${serverAddress}/v1/images/generations`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${tokenKey}`,
+            },
+            body: JSON.stringify(body),
+          });
+          if (!response.ok) {
+            const errData = await response.json().catch(() => null);
+            const errMsg = errData?.error?.message || `Request failed: ${response.status}`;
+            throw new Error(errMsg);
+          }
+          const data = await response.json();
+          const images = (data.data || []).map((item) => ({
+            mimeType: 'image/png',
+            base64: item.b64_json,
+          }));
+          const parsedResult = { texts: [], images };
+          setResult(parsedResult);
+          return parsedResult;
+        }
+
+        // Gemini path
         const parts = [];
 
         // Add text prompt
