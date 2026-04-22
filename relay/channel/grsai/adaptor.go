@@ -277,14 +277,15 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 
 	// Estimate token counts for log display (upstream never returns token usage).
 	// Input:  rough character-to-token ratio (1 token ≈ 4 chars) from the prompt text.
-	// Output: gpt-image-2 standard 1024×1024 quality ≈ 1056 tokens per image.
-	const outputTokensPerImage = 1056
+	// Output: per-image token count derived from requested size (based on OpenAI gpt-image-2 pricing).
 	promptTokens := 0
+	outputTokensPerImage := imageSizeTokens("") // default
 	if imageReq, ok := info.Request.(*dto.ImageRequest); ok && imageReq != nil {
 		promptTokens = (len(imageReq.Prompt) + 3) / 4
 		if promptTokens < 1 {
 			promptTokens = 1
 		}
+		outputTokensPerImage = imageSizeTokens(imageReq.Size)
 	}
 	completionTokens := len(items) * outputTokensPerImage
 
@@ -307,6 +308,28 @@ func (a *Adaptor) ConvertAudioRequest(_ *gin.Context, _ *relaycommon.RelayInfo, 
 
 func (a *Adaptor) ConvertEmbeddingRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ dto.EmbeddingRequest) (any, error) {
 	return nil, errors.New("not available")
+}
+
+// imageSizeTokens returns the estimated output token count per generated image
+// based on the requested size, following OpenAI gpt-image-2 pricing tiers.
+// size may be an OpenAI pixel string ("1024x1024") or a grsai ratio ("1:1").
+func imageSizeTokens(size string) int {
+	switch size {
+	// square
+	case "256x256":
+		return 258
+	case "512x512":
+		return 522
+	case "1024x1024", "1:1", "auto", "":
+		return 1056
+	// landscape / portrait (1.5× ratio)
+	case "1536x1024", "1792x1024", "3:2", "16:9":
+		return 1584
+	case "1024x1536", "1024x1792", "2:3", "9:16":
+		return 1584
+	default:
+		return 1056
+	}
 }
 
 func (a *Adaptor) ConvertRerankRequest(_ *gin.Context, _ int, _ dto.RerankRequest) (any, error) {
