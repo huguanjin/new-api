@@ -275,12 +275,23 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		Data:    items,
 	})
 
-	// PromptTokens=0 lets ImageHelper fill it with imageN as a fallback.
-	// CompletionTokens = number of output images, shown in the "输出" log column.
+	// Estimate token counts for log display (upstream never returns token usage).
+	// Input:  rough character-to-token ratio (1 token ≈ 4 chars) from the prompt text.
+	// Output: gpt-image-2 standard 1024×1024 quality ≈ 1056 tokens per image.
+	const outputTokensPerImage = 1056
+	promptTokens := 0
+	if imageReq, ok := info.Request.(*dto.ImageRequest); ok && imageReq != nil {
+		promptTokens = (len(imageReq.Prompt) + 3) / 4
+		if promptTokens < 1 {
+			promptTokens = 1
+		}
+	}
+	completionTokens := len(items) * outputTokensPerImage
+
 	return &dto.Usage{
-		PromptTokens:     0,
-		CompletionTokens: len(items),
-		TotalTokens:      len(items),
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		TotalTokens:      promptTokens + completionTokens,
 	}, nil
 }
 
