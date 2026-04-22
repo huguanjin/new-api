@@ -164,7 +164,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, types.NewOpenAIError(
-			fmt.Errorf("grsai upstream error %d: %s", resp.StatusCode, string(body)),
+			fmt.Errorf("image generation upstream error %d: %s", resp.StatusCode, string(body)),
 			types.ErrorCodeInvalidRequest,
 			resp.StatusCode,
 		)
@@ -193,7 +193,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, types.NewOpenAIError(
-			fmt.Errorf("failed to read grsai stream: %w", err),
+			fmt.Errorf("failed to read image generation stream: %w", err),
 			types.ErrorCodeDoRequestFailed,
 			http.StatusInternalServerError,
 		)
@@ -226,7 +226,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 
 	if (last.Status != "succeeded" && last.Status != "success") || len(last.Results) == 0 {
 		return nil, types.NewOpenAIError(
-			fmt.Errorf("grsai returned no results"),
+			fmt.Errorf("image generation returned no results"),
 			types.ErrorCodeDoRequestFailed,
 			http.StatusInternalServerError,
 		)
@@ -247,14 +247,14 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		}
 		_, b64, err := service.GetImageFromUrl(r.URL)
 		if err != nil {
-			common.LogError(c.Request.Context(), fmt.Sprintf("grsai: failed to download image %s: %v", r.URL, err))
+			common.LogError(c.Request.Context(), fmt.Sprintf("image generation: failed to download result image: %v", err))
 			continue
 		}
 		items = append(items, imageItem{B64Json: b64})
 	}
 	if len(items) == 0 {
 		return nil, types.NewOpenAIError(
-			fmt.Errorf("grsai: failed to download any result images"),
+			fmt.Errorf("image generation: failed to download any result images"),
 			types.ErrorCodeDoRequestFailed,
 			http.StatusInternalServerError,
 		)
@@ -277,7 +277,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 // ── Unsupported methods ───────────────────────────────────────────────────────
 
 func (a *Adaptor) ConvertOpenAIRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ *dto.GeneralOpenAIRequest) (any, error) {
-	return nil, errors.New("grsai channel only supports image generation")
+	return nil, errors.New("this channel only supports image generation, please use POST /v1/images/generations instead of /v1/chat/completions")
 }
 
 func (a *Adaptor) ConvertAudioRequest(_ *gin.Context, _ *relaycommon.RelayInfo, _ dto.AudioRequest) (io.Reader, error) {
