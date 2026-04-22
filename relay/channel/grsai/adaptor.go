@@ -200,6 +200,11 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	}
 
 	if last.Status == "failed" || last.Status == "error" {
+		// Log full details so admin can diagnose upstream issues.
+		common.LogError(c.Request.Context(), fmt.Sprintf(
+			"image generation upstream failure: status=%s failure_reason=%q error=%q",
+			last.Status, last.FailureReason, last.Error,
+		))
 		var humanMsg string
 		switch last.FailureReason {
 		case "output_moderation":
@@ -207,7 +212,11 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		case "input_moderation":
 			humanMsg = "image generation failed: input prompt violated moderation policy"
 		case "error":
-			humanMsg = "image generation failed: upstream error, please retry"
+			if last.Error != "" {
+				humanMsg = "image generation failed: " + last.Error
+			} else {
+				humanMsg = "image generation failed: upstream error, please retry"
+			}
 		default:
 			if last.FailureReason != "" {
 				humanMsg = "image generation failed: " + last.FailureReason
