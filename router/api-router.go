@@ -251,6 +251,18 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.POST("/copy/:id", controller.CopyChannel)
 			channelRoute.POST("/multi_key/manage", controller.ManageMultiKeys)
 		}
+		externalSiteRoute := apiRouter.Group("/external-site")
+		externalSiteRoute.Use(middleware.AdminAuth())
+		{
+			externalSiteRoute.GET("/", controller.GetAllExternalSites)
+			externalSiteRoute.POST("/", controller.CreateExternalSite)
+			externalSiteRoute.PUT("/:id", controller.UpdateExternalSite)
+			externalSiteRoute.DELETE("/:id", controller.DeleteExternalSite)
+			externalSiteRoute.POST("/:id/query", controller.QueryExternalSiteBalance)
+			externalSiteRoute.POST("/query_all", controller.QueryAllExternalSitesBalance)
+			externalSiteRoute.POST("/import", controller.ImportExternalSites)
+			externalSiteRoute.GET("/export", controller.ExportExternalSites)
+		}
 		tokenRoute := apiRouter.Group("/token")
 		tokenRoute.Use(middleware.UserAuth())
 		{

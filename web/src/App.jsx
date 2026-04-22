@@ -55,6 +55,7 @@ import Setup from './pages/Setup';
 const BatchUser = lazy(() => import('./pages/BatchUser'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const AdminTokens = lazy(() => import('./pages/Token/AdminTokens'));
+const SiteBalance = lazy(() => import('./pages/SiteBalance'));
 import SetupCheck from './components/layout/SetupCheck';
 
 const Home = lazy(() => import('./pages/Home'));
@@ -215,6 +216,16 @@ function App() {
             <AdminRoute>
               <Suspense fallback={<Loading />}>
                 <AdminTokens />
+              </Suspense>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/site-balance'
+          element={
+            <AdminRoute>
+              <Suspense fallback={<Loading />}>
+                <SiteBalance />
               </Suspense>
             </AdminRoute>
           }

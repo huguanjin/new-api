@@ -55,6 +55,7 @@ const routerMap = {
   batch_user: '/console/batch-user',
   admin_token: '/console/admin-token',
   admin_panel: '/console/admin-panel',
+  site_balance: '/console/site-balance',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -221,6 +222,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('批量创建用户'),
         itemKey: 'batch_user',
         to: '/console/batch-user',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('站点余额'),
+        itemKey: 'site_balance',
+        to: '/console/site-balance',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
