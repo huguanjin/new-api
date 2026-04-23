@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { lazy, Suspense, useContext, useMemo } from 'react';
 import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
+import ErrorBoundary from './components/common/ui/ErrorBoundary';
 import User from './pages/User';
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
 import RegisterForm from './components/auth/RegisterForm';
@@ -224,9 +225,11 @@ function App() {
           path='/console/site-balance'
           element={
             <AdminRoute>
-              <Suspense fallback={<Loading />}>
-                <SiteBalance />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<Loading />}>
+                  <SiteBalance />
+                </Suspense>
+              </ErrorBoundary>
             </AdminRoute>
           }
         />

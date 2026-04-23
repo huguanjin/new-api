@@ -123,6 +123,11 @@ export function showError(error) {
   console.error(error);
   if (error.message) {
     if (error.name === 'AxiosError') {
+      if (!error.response) {
+        // 网络错误或请求超时，无 HTTP 响应
+        Toast.error('错误：网络连接失败，请检查网络或服务器是否正常！');
+        return;
+      }
       switch (error.response.status) {
         case 401:
           // 清除用户状态

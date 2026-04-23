@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -141,8 +142,19 @@ func querySiteBalance(site *model.ExternalSiteConfig) *siteQueryResult {
 		Url:  site.Url,
 	}
 
-	// SSRF protection — only allow public IPs
-	if err := common.DefaultSSRFProtection.ValidateURL(site.Url); err != nil {
+	// SSRF protection — use system fetch settings
+	fs := system_setting.GetFetchSetting()
+	if err := common.ValidateURLWithFetchSetting(
+		site.Url,
+		fs.EnableSSRFProtection,
+		fs.AllowPrivateIp,
+		fs.DomainFilterMode,
+		fs.IpFilterMode,
+		fs.DomainList,
+		fs.IpList,
+		fs.AllowedPorts,
+		fs.ApplyIPFilterForDomain,
+	); err != nil {
 		result.Error = fmt.Sprintf("URL 安全校验失败: %v", err)
 		return result
 	}

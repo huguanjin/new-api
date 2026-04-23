@@ -14,6 +14,7 @@ import {
   Spin,
   Table,
   Tag,
+  TextArea,
   Toast,
   Tooltip,
   Typography,
@@ -254,6 +255,7 @@ export default function SiteBalance() {
         Toast.success(t('导入成功，共 {{count}} 条', { count: res.data.count }));
         setImportModalVisible(false);
         setImportText('');
+        setQueryResults({});
         await fetchSites();
       } else {
         Toast.error(res.data.message || t('导入失败'));
@@ -301,6 +303,12 @@ export default function SiteBalance() {
       title: t('备注'),
       dataIndex: 'remark',
       width: 120,
+      render: (v) => <Text type="tertiary">{v || '-'}</Text>,
+    },
+    {
+      title: t('用户 ID'),
+      dataIndex: 'user_id_ext',
+      width: 90,
       render: (v) => <Text type="tertiary">{v || '-'}</Text>,
     },
     {
@@ -542,7 +550,7 @@ export default function SiteBalance() {
           description={t('导入将覆盖现有所有站点配置，请谨慎操作')}
           style={{ marginBottom: 12 }}
         />
-        <Input.TextArea
+        <TextArea
           rows={10}
           placeholder={t('粘贴 JSON 数组内容，格式：[{"name":"...","url":"...","token":"...","userId":"..."}]')}
           value={importText}
