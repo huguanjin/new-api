@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
@@ -1462,21 +1463,36 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 		// 审核拦截或空候选：使用零 usage，不对用户扣费
 		usage := dto.Usage{}
 
+		// 对图片生成模式，若管理员配置了政策拦截消息，则用自定义消息覆盖
+		isImageMode := info.RelayMode == relayconstant.RelayModeImagesGenerations ||
+			info.RelayMode == relayconstant.RelayModeImagesEdits
+		customPolicyMsg := operation_setting.GetImagePolicyBlockMessage()
+
 		var newAPIError *types.NewAPIError
 		if geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
 			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
-			newAPIError = types.NewOpenAIError(
-				errors.New("request blocked by Gemini API: "+*geminiResponse.PromptFeedback.BlockReason),
-				types.ErrorCodePromptBlocked,
-				http.StatusBadRequest,
-			)
+			if isImageMode && customPolicyMsg != "" {
+				statusCode := operation_setting.GetImagePolicyBlockStatusCode()
+				newAPIError = types.NewOpenAIError(errors.New(customPolicyMsg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
+			} else {
+				newAPIError = types.NewOpenAIError(
+					errors.New("request blocked by Gemini API: "+*geminiResponse.PromptFeedback.BlockReason),
+					types.ErrorCodePromptBlocked,
+					http.StatusBadRequest,
+				)
+			}
 		} else {
 			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, "gemini_empty_candidates")
-			newAPIError = types.NewOpenAIError(
-				errors.New("empty response from Gemini API"),
-				types.ErrorCodeEmptyResponse,
-				http.StatusInternalServerError,
-			)
+			if isImageMode && customPolicyMsg != "" {
+				statusCode := operation_setting.GetImagePolicyBlockStatusCode()
+				newAPIError = types.NewOpenAIError(errors.New(customPolicyMsg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
+			} else {
+				newAPIError = types.NewOpenAIError(
+					errors.New("empty response from Gemini API"),
+					types.ErrorCodeEmptyResponse,
+					http.StatusInternalServerError,
+				)
+			}
 		}
 
 		service.ResetStatusCode(newAPIError, c.GetString("status_code_mapping"))
