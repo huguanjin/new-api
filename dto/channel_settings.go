@@ -7,6 +7,8 @@ type ChannelSettings struct {
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	// 渠道级别「无输出不扣费」：开启后此渠道请求无输出（completionTokens == 0）时不扣费
+	NoOutputNoBilling bool `json:"no_output_no_billing,omitempty"`
 }
 
 type VertexKeyType string

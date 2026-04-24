@@ -18,17 +18,19 @@ import {
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 
+const defaultInputs = {
+  'billing_setting.no_output_no_billing_models': '',
+  'billing_setting.task_per_call_billing_models': '',
+  'billing_setting.image_policy_block_message': '',
+  'billing_setting.image_policy_block_status_code': '',
+};
+
 export default function SettingsBilling(props) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const [inputs, setInputs] = useState({
-    'billing_setting.no_output_no_billing_models': '',
-    'billing_setting.task_per_call_billing_models': '',
-    'billing_setting.image_policy_block_message': '',
-    'billing_setting.image_policy_block_status_code': '',
-  });
+  const [inputs, setInputs] = useState(defaultInputs);
   const refForm = useRef();
-  const [inputsRow, setInputsRow] = useState(inputs);
+  const [inputsRow, setInputsRow] = useState(defaultInputs);
 
   function handleFieldChange(fieldName) {
     return (value) => {
@@ -74,13 +76,14 @@ export default function SettingsBilling(props) {
   useEffect(() => {
     const currentInputs = {};
     for (let key in props.options) {
-      if (Object.keys(inputs).includes(key)) {
+      if (Object.keys(defaultInputs).includes(key)) {
         currentInputs[key] = props.options[key];
       }
     }
-    setInputs(currentInputs);
-    setInputsRow(structuredClone(currentInputs));
-    refForm.current.setValues(currentInputs);
+    const merged = { ...defaultInputs, ...currentInputs };
+    setInputs(merged);
+    setInputsRow(structuredClone(merged));
+    refForm.current.setValues(merged);
   }, [props.options]);
 
   return (

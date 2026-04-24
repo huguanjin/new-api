@@ -418,10 +418,14 @@ func postConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage 
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
 			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, modelName, relayInfo.FinalPreConsumedQuota))
-	} else if completionTokens == 0 && operation_setting.IsNoOutputNoBillingModel(modelName) {
-		// 无输出不扣费：配置的模型在没有输出 token 时不计费
+	} else if completionTokens == 0 && (operation_setting.IsNoOutputNoBillingModel(modelName) || relayInfo.ChannelSetting.NoOutputNoBilling) {
+		// 无输出不扣费：全局模型列表命中，或渠道级别开关已开启
 		quota = 0
-		extraContent = append(extraContent, "无输出不扣费（模型已配置为无输出时不计费）")
+		if relayInfo.ChannelSetting.NoOutputNoBilling {
+			extraContent = append(extraContent, "无输出不扣费（渠道已配置为无输出时不计费）")
+		} else {
+			extraContent = append(extraContent, "无输出不扣费（模型已配置为无输出时不计费）")
+		}
 		logger.LogInfo(ctx, fmt.Sprintf("no output no billing: model %s, userId %d, channelId %d, promptTokens %d",
 			modelName, relayInfo.UserId, relayInfo.ChannelId, promptTokens))
 	} else {

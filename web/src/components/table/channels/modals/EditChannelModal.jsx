@@ -203,6 +203,8 @@ const EditChannelModal = (props) => {
     allow_include_obfuscation: false,
     allow_inference_geo: false,
     claude_beta_query: false,
+    // 渠道级别「无输出不扣费」开关
+    no_output_no_billing: false,
   };
   const [batch, setBatch] = useState(false);
   const [multiToSingle, setMultiToSingle] = useState(false);
@@ -810,6 +812,8 @@ const EditChannelModal = (props) => {
           data.system_prompt = parsedSettings.system_prompt || '';
           data.system_prompt_override =
             parsedSettings.system_prompt_override || false;
+          data.no_output_no_billing =
+            parsedSettings.no_output_no_billing || false;
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
@@ -818,6 +822,7 @@ const EditChannelModal = (props) => {
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
           data.system_prompt_override = false;
+          data.no_output_no_billing = false;
         }
       } else {
         data.force_format = false;
@@ -826,6 +831,7 @@ const EditChannelModal = (props) => {
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
         data.system_prompt_override = false;
+        data.no_output_no_billing = false;
       }
 
       if (data.settings) {
@@ -1629,6 +1635,7 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
       system_prompt_override: localInputs.system_prompt_override || false,
+      no_output_no_billing: localInputs.no_output_no_billing === true,
     };
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
@@ -1686,6 +1693,7 @@ const EditChannelModal = (props) => {
     delete localInputs.pass_through_body_enabled;
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
+    delete localInputs.no_output_no_billing;
     delete localInputs.is_enterprise_account;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
@@ -3740,6 +3748,22 @@ const EditChannelModal = (props) => {
                       }
                       extraText={t(
                         '如果用户请求中包含系统提示词，则使用此设置拼接到用户的系统提示词前面',
+                      )}
+                    />
+
+                    <Form.Switch
+                      field='no_output_no_billing'
+                      label={t('无输出不扣费')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelSettingsChange(
+                          'no_output_no_billing',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '开启后，当该渠道请求无输出（如图片生成被审核拦截导致无图片返回）时，将不扣费。优先于运营设置中的全局模型列表',
                       )}
                     />
                   </Card>
