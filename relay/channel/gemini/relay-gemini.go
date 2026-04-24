@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/reasoning"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
@@ -1579,6 +1580,10 @@ func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	}
 
 	if len(geminiResponse.Predictions) == 0 {
+		if msg := operation_setting.GetImagePolicyBlockMessage(); msg != "" {
+			statusCode := operation_setting.GetImagePolicyBlockStatusCode()
+			return nil, types.NewOpenAIError(errors.New(msg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
+		}
 		return nil, types.NewOpenAIError(errors.New("no images generated"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 
@@ -1599,6 +1604,10 @@ func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 
 	// 所有图片都被安全过滤，不扣费并返回错误
 	if len(openAIResponse.Data) == 0 {
+		if msg := operation_setting.GetImagePolicyBlockMessage(); msg != "" {
+			statusCode := operation_setting.GetImagePolicyBlockStatusCode()
+			return nil, types.NewOpenAIError(errors.New(msg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
+		}
 		return nil, types.NewOpenAIError(errors.New("all images were filtered by safety filters"), types.ErrorCodePromptBlocked, http.StatusBadRequest)
 	}
 

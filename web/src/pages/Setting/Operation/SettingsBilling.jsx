@@ -4,6 +4,7 @@ import {
   Button,
   Col,
   Form,
+  InputNumber,
   Row,
   Spin,
   Typography,
@@ -23,6 +24,8 @@ export default function SettingsBilling(props) {
   const [inputs, setInputs] = useState({
     'billing_setting.no_output_no_billing_models': '',
     'billing_setting.task_per_call_billing_models': '',
+    'billing_setting.image_policy_block_message': '',
+    'billing_setting.image_policy_block_status_code': '',
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
@@ -130,6 +133,42 @@ export default function SettingsBilling(props) {
               type='info'
               description={t(
                 '配置后，列表中的视频模型提交任务时将按固定价格计费，不再乘以时长、分辨率等参数倍率。未在列表中的模型仍按默认的参数倍率计费。支持通配符：sora-* 匹配以 sora- 开头的模型。也可通过环境变量 TASK_PRICE_PATCH 配置（两处取并集）。',
+              )}
+              style={{ marginBottom: 16 }}
+            />
+            <Row gutter={16}>
+              <Col span={24}>
+                <Form.TextArea
+                  field={'billing_setting.image_policy_block_message'}
+                  label={t('图片生成政策拦截提示消息')}
+                  placeholder={t(
+                    '留空则禁用此功能。配置后，当 Gemini 生图因政策拦截返回空结果时，将向下游返回此消息，例如：您的请求因内容政策限制未能生成图片，请修改提示词后重试。',
+                  )}
+                  onChange={handleFieldChange(
+                    'billing_setting.image_policy_block_message',
+                  )}
+                  autosize={{ minRows: 2, maxRows: 6 }}
+                />
+              </Col>
+            </Row>
+            <Row gutter={16} style={{ marginTop: 8 }}>
+              <Col span={12}>
+                <Form.InputNumber
+                  field={'billing_setting.image_policy_block_status_code'}
+                  label={t('图片生成政策拦截状态码')}
+                  placeholder={'400'}
+                  min={100}
+                  max={599}
+                  onChange={handleFieldChange(
+                    'billing_setting.image_policy_block_status_code',
+                  )}
+                />
+              </Col>
+            </Row>
+            <Banner
+              type='info'
+              description={t(
+                '当 Gemini 生图因内容政策拦截返回空响应（HTTP 200 但无图片）时，向下游返回上方配置的提示消息和状态码。留空消息字段则禁用此功能，保持原有行为（500 空响应错误）。状态码留空或填 0 则默认使用 400；推荐使用 451（法律原因不可用）语义更准确。',
               )}
               style={{ marginBottom: 16 }}
             />

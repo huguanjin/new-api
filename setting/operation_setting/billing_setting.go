@@ -13,11 +13,17 @@ type BillingSetting struct {
 	// 任务按次计费模型列表（逗号分隔，支持 * 通配符，例如 "sora-*,veo-*"）
 	// 列表中的模型提交视频任务时跳过 OtherRatios（时长、分辨率）乘算，仅按模型固定价格计费
 	TaskPerCallBillingModels string `json:"task_per_call_billing_models"`
+	// 图片生成政策拦截时返回给下游的自定义提示消息；留空则禁用此功能（保持原有行为）
+	ImagePolicyBlockMessage string `json:"image_policy_block_message"`
+	// 图片生成政策拦截时返回给下游的 HTTP 状态码；0 表示使用默认值 400
+	ImagePolicyBlockStatusCode int `json:"image_policy_block_status_code"`
 }
 
 var billingSetting = BillingSetting{
-	NoOutputNoBillingModels:  "",
-	TaskPerCallBillingModels: "",
+	NoOutputNoBillingModels:    "",
+	TaskPerCallBillingModels:   "",
+	ImagePolicyBlockMessage:    "",
+	ImagePolicyBlockStatusCode: 0,
 }
 
 // 缓存解析后的模型列表
@@ -37,6 +43,22 @@ func init() {
 
 func GetBillingSetting() *BillingSetting {
 	return &billingSetting
+}
+
+// GetImagePolicyBlockMessage 返回图片生成政策拦截时向下游发送的自定义提示消息。
+// 返回空字符串表示功能未启用。
+func GetImagePolicyBlockMessage() string {
+	return billingSetting.ImagePolicyBlockMessage
+}
+
+// GetImagePolicyBlockStatusCode 返回图片生成政策拦截时的 HTTP 状态码。
+// 若未配置（值为 0）则返回默认值 400。
+func GetImagePolicyBlockStatusCode() int {
+	code := billingSetting.ImagePolicyBlockStatusCode
+	if code == 0 {
+		return 400
+	}
+	return code
 }
 
 // IsNoOutputNoBillingModel 检查指定模型是否在「无输出不扣费」列表中

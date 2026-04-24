@@ -288,17 +288,7 @@ export default function GeneralSettings(props) {
                   onChange={handleFieldChange('SelfUseModeEnabled')}
                 />
               </Col>
-              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
-                <Form.Switch
-                  field={'log_setting.hide_upstream_model'}
-                  label={t('隐藏上游模型名称')}
-                  extraText={t('开启后用户侧日志不展示真实上游模型名')}
-                  size='default'
-                  checkedText='｜'
-                  uncheckedText='〇'
-                  onChange={handleFieldChange('log_setting.hide_upstream_model')}
-                />
-              </Col>
+
             </Row>
             <Row gutter={16}>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
