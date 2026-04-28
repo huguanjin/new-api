@@ -36,6 +36,13 @@ type ChannelOtherSettings struct {
 	AllowSafetyIdentifier   bool          `json:"allow_safety_identifier,omitempty"`   // 是否允许 safety_identifier 透传（默认过滤以保护用户隐私）
 	AllowIncludeObfuscation bool          `json:"allow_include_obfuscation,omitempty"` // 是否允许 stream_options.include_obfuscation 透传（默认过滤以避免关闭流混淆保护）
 	AwsKeyType              AwsKeyType    `json:"aws_key_type,omitempty"`
+	// GeminiBase64ToUrlEnabled enables automatic upload of large base64 images to the local
+	// temp-image server and replaces them with a fileData.fileUri for the upstream Gemini API.
+	// Only effective when the channel's upstream Gemini provider supports fileData/fileUri.
+	GeminiBase64ToUrlEnabled bool `json:"gemini_base64_to_url_enabled,omitempty"`
+	// GeminiBase64ToUrlThresholdKB is the minimum base64-decoded image size in KiB that
+	// triggers the upload. 0 means use the default of 512 KiB.
+	GeminiBase64ToUrlThresholdKB int `json:"gemini_base64_to_url_threshold_kb,omitempty"`
 }
 
 func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {

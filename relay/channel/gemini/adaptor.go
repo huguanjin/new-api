@@ -1,4 +1,4 @@
-package gemini
+﻿package gemini
 
 import (
 	"errors"
@@ -12,8 +12,10 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/reasoning"
+	system_setting "github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +23,55 @@ import (
 )
 
 type Adaptor struct {
+}
+
+// convertBase64InlineDataToURL iterates over all parts in a GeminiChatRequest and
+// uploads any InlineData image whose decoded size exceeds the configured threshold to the
+// local temp-image server.  The InlineData part is then replaced with a FileData part
+// pointing to the public URL so that the upstream Gemini provider can fetch it directly,
+// avoiding the upstream nginx 413 limit.
+func convertBase64InlineDataToURL(request *dto.GeminiChatRequest, info *relaycommon.RelayInfo) error {
+	if !info.ChannelOtherSettings.GeminiBase64ToUrlEnabled {
+		return nil
+	}
+
+	// Determine threshold in bytes (decoded image size). Default: 512 KiB.
+	thresholdKB := info.ChannelOtherSettings.GeminiBase64ToUrlThresholdKB
+	if thresholdKB <= 0 {
+		thresholdKB = 512
+	}
+	thresholdBytes := thresholdKB * 1024
+
+	baseURL := strings.TrimRight(system_setting.ServerAddress, "/")
+
+	for i := range request.Contents {
+		for j := range request.Contents[i].Parts {
+			part := &request.Contents[i].Parts[j]
+			if part.InlineData == nil {
+				continue
+			}
+			// base64 string length * 3/4 ≈ decoded byte count (accurate enough for threshold check)
+			estimatedBytes := len(part.InlineData.Data) * 3 / 4
+			if estimatedBytes < thresholdBytes {
+				continue
+			}
+
+			filename, err := service.SaveTempImage(part.InlineData.Data, part.InlineData.MimeType)
+			if err != nil {
+				return fmt.Errorf("failed to save temp image for base64→URL conversion: %w", err)
+			}
+
+			fileURI := baseURL + "/temp-images/" + filename
+			mimeType := part.InlineData.MimeType
+
+			part.InlineData = nil
+			part.FileData = &dto.GeminiFileData{
+				MimeType: mimeType,
+				FileUri:  fileURI,
+			}
+		}
+	}
+	return nil
 }
 
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
@@ -31,7 +82,8 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 					request.Contents[0].Role = "user"
 				}
 			}
-			for _, part := range content.Parts {
+			for j := range content.Parts {
+				part := &request.Contents[i].Parts[j]
 				if part.FileData != nil {
 					if part.FileData.MimeType == "" && strings.Contains(part.FileData.FileUri, "www.youtube.com") {
 						part.FileData.MimeType = "video/webm"
@@ -40,6 +92,11 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 			}
 		}
 	}
+
+	if err := convertBase64InlineDataToURL(request, info); err != nil {
+		return nil, err
+	}
+
 	return request, nil
 }
 
@@ -183,6 +240,10 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 
 	geminiRequest, err := CovertOpenAI2Gemini(c, *request, info)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := convertBase64InlineDataToURL(geminiRequest, info); err != nil {
 		return nil, err
 	}
 

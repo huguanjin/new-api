@@ -116,6 +116,10 @@ func main() {
 	service.InitExportStorageDir()
 	service.StartExportCleanupTask()
 
+	// Temp image storage (used for Gemini base64→URL conversion)
+	service.InitTempImageStorageDir()
+	service.StartTempImageCleanupTask()
+
 	// Wire task polling adaptor factory (breaks service -> relay import cycle)
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
 		a := relay.GetTaskAdaptor(platform)

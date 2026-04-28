@@ -12,6 +12,9 @@ import (
 )
 
 func SetApiRouter(router *gin.Engine) {
+	// Public route for temporary images (no auth – upstream AI servers must be able to fetch these)
+	router.GET("/temp-images/:filename", controller.ServeTempImage)
+
 	apiRouter := router.Group("/api")
 	apiRouter.Use(middleware.RouteTag("api"))
 	apiRouter.Use(gzip.Gzip(gzip.DefaultCompression))

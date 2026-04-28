@@ -445,6 +445,9 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 	}
 	tool_call_ids := make(map[string]string)
 	var system_content []string
+	// Track total inline data bytes across all parts to detect Gemini's ~20 MB limit early.
+	const geminiInlineDataLimitBytes = 18 * 1024 * 1024 // 18 MB, conservative before Google's 20 MB hard limit
+	var totalInlineDataBytes int
 	//shouldAddDummyModelMessage := false
 	for _, message := range textRequest.Messages {
 		if message.Role == "system" || message.Role == "developer" {
@@ -566,6 +569,10 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 					if err != nil {
 						return nil, fmt.Errorf("decode markdown base64 image data failed: %s", err.Error())
 					}
+					totalInlineDataBytes += len(base64String)
+					if totalInlineDataBytes > geminiInlineDataLimitBytes {
+						return nil, fmt.Errorf("request inline data size (~%d MB) exceeds Gemini's 20 MB limit; reduce image count or size", totalInlineDataBytes>>20)
+					}
 					imgPart := dto.GeminiPart{
 						InlineData: &dto.GeminiInlineData{
 							MimeType: format,
@@ -603,6 +610,10 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 				if _, ok := geminiSupportedMimeTypes[strings.ToLower(mimeType)]; !ok {
 					return nil, fmt.Errorf("mime type is not supported by Gemini: '%s', url: '%s', supported types are: %v", mimeType, source.GetIdentifier(), getSupportedMimeTypesList())
 				}
+				totalInlineDataBytes += len(base64Data)
+				if totalInlineDataBytes > geminiInlineDataLimitBytes {
+					return nil, fmt.Errorf("request inline data size (~%d MB) exceeds Gemini's 20 MB limit; reduce image count or size", totalInlineDataBytes>>20)
+				}
 
 				parts = append(parts, dto.GeminiPart{
 					InlineData: &dto.GeminiInlineData{
@@ -619,6 +630,10 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 				if err != nil {
 					return nil, fmt.Errorf("decode base64 file data failed: %s", err.Error())
 				}
+				totalInlineDataBytes += len(base64Data)
+				if totalInlineDataBytes > geminiInlineDataLimitBytes {
+					return nil, fmt.Errorf("request inline data size (~%d MB) exceeds Gemini's 20 MB limit; reduce image count or size", totalInlineDataBytes>>20)
+				}
 				parts = append(parts, dto.GeminiPart{
 					InlineData: &dto.GeminiInlineData{
 						MimeType: mimeType,
@@ -633,6 +648,10 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 				base64Data, mimeType, err := service.GetBase64Data(c, audioSource, "formatting audio for Gemini")
 				if err != nil {
 					return nil, fmt.Errorf("decode base64 audio data failed: %s", err.Error())
+				}
+				totalInlineDataBytes += len(base64Data)
+				if totalInlineDataBytes > geminiInlineDataLimitBytes {
+					return nil, fmt.Errorf("request inline data size (~%d MB) exceeds Gemini's 20 MB limit; reduce image count or size", totalInlineDataBytes>>20)
 				}
 				parts = append(parts, dto.GeminiPart{
 					InlineData: &dto.GeminiInlineData{

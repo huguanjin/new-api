@@ -3664,6 +3664,43 @@ const EditChannelModal = (props) => {
                       />
                     )}
 
+                    {inputs.type === 24 && (
+                      <>
+                        <Form.Switch
+                          field='gemini_base64_to_url_enabled'
+                          label={t('大图转URL')}
+                          checkedText={t('开')}
+                          uncheckedText={t('关')}
+                          onChange={(value) =>
+                            handleChannelOtherSettingsChange(
+                              'gemini_base64_to_url_enabled',
+                              value,
+                            )
+                          }
+                          extraText={t(
+                            '开启后，超过阈值大小的 base64 图片将自动上传到本地临时存储并转换为 URL，避免上游 nginx 413 错误',
+                          )}
+                        />
+                        {inputs.other_settings?.gemini_base64_to_url_enabled && (
+                          <Form.InputNumber
+                            field='gemini_base64_to_url_threshold_kb'
+                            label={t('阈值 (KB)')}
+                            placeholder='512'
+                            min={1}
+                            onChange={(value) =>
+                              handleChannelOtherSettingsChange(
+                                'gemini_base64_to_url_threshold_kb',
+                                value,
+                              )
+                            }
+                            extraText={t(
+                              '图片解码后大小超过此值（KiB）时才触发转换，默认 512 KiB',
+                            )}
+                          />
+                        )}
+                      </>
+                    )}
+
                     {inputs.type === 1 && (
                       <Form.Switch
                         field='force_format'
