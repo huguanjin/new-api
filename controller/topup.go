@@ -183,13 +183,14 @@ func RequestEpay(c *gin.Context) {
 		amount = dAmount.Div(dQuotaPerUnit).IntPart()
 	}
 	topUp := &model.TopUp{
-		UserId:        id,
-		Amount:        amount,
-		Money:         payMoney,
-		TradeNo:       tradeNo,
-		PaymentMethod: req.PaymentMethod,
-		CreateTime:    time.Now().Unix(),
-		Status:        "pending",
+		UserId:          id,
+		Amount:          amount,
+		Money:           payMoney,
+		TradeNo:         tradeNo,
+		PaymentMethod:   req.PaymentMethod,
+		PaymentProvider: model.PaymentProviderEpay,
+		CreateTime:      time.Now().Unix(),
+		Status:          "pending",
 	}
 	err = topUp.Insert()
 	if err != nil {
@@ -299,8 +300,14 @@ func EpayNotify(c *gin.Context) {
 		return
 	}
 
-	// Fix-2: 支付方式交叉验证 — 防止其他渠道订单被易支付回调意外完成
-	if topUp.PaymentMethod == "stripe" || topUp.PaymentMethod == "creem" || topUp.PaymentMethod == "waffo" {
+	// PaymentProvider 验证 — 防止其他渠道订单被易支付回调意外完成
+	if topUp.PaymentProvider != "" && topUp.PaymentProvider != model.PaymentProviderEpay {
+		log.Printf("易支付回调订单支付网关不匹配: provider=%s, 订单号: %s", topUp.PaymentProvider, verifyInfo.ServiceTradeNo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+	// 向后兼容：旧订单没有 PaymentProvider，使用旧的 blocklist 验证
+	if topUp.PaymentProvider == "" && (topUp.PaymentMethod == "stripe" || topUp.PaymentMethod == "creem" || topUp.PaymentMethod == "waffo" || topUp.PaymentMethod == "waffo_pancake") {
 		log.Printf("易支付回调订单支付方式不匹配: %s, 订单号: %s", topUp.PaymentMethod, verifyInfo.ServiceTradeNo)
 		_, _ = c.Writer.Write([]byte("fail"))
 		return

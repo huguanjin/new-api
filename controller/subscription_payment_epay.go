@@ -83,13 +83,14 @@ func SubscriptionRequestEpay(c *gin.Context) {
 	}
 
 	order := &model.SubscriptionOrder{
-		UserId:        userId,
-		PlanId:        plan.Id,
-		Money:         plan.PriceAmount,
-		TradeNo:       tradeNo,
-		PaymentMethod: req.PaymentMethod,
-		CreateTime:    time.Now().Unix(),
-		Status:        common.TopUpStatusPending,
+		UserId:          userId,
+		PlanId:          plan.Id,
+		Money:           plan.PriceAmount,
+		TradeNo:         tradeNo,
+		PaymentMethod:   req.PaymentMethod,
+		PaymentProvider: model.PaymentProviderEpay,
+		CreateTime:      time.Now().Unix(),
+		Status:          common.TopUpStatusPending,
 	}
 	if err := order.Insert(); err != nil {
 		common.ApiErrorMsg(c, "创建订单失败")
@@ -165,8 +166,14 @@ func SubscriptionEpayNotify(c *gin.Context) {
 		return
 	}
 
-	// 支付方式交叉验证
-	if order.PaymentMethod == "stripe" || order.PaymentMethod == "creem" || order.PaymentMethod == "waffo" {
+	// PaymentProvider 验证 — 防止其他渠道订单被易支付回调意外完成
+	if order.PaymentProvider != "" && order.PaymentProvider != model.PaymentProviderEpay {
+		log.Printf("订阅易支付回调订单支付网关不匹配: provider=%s, tradeNo=%s", order.PaymentProvider, verifyInfo.ServiceTradeNo)
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+	// 向后兼容：旧订单没有 PaymentProvider，fallback 到 blocklist 验证
+	if order.PaymentProvider == "" && (order.PaymentMethod == "stripe" || order.PaymentMethod == "creem" || order.PaymentMethod == "waffo" || order.PaymentMethod == "waffo_pancake") {
 		log.Printf("订阅易支付回调订单支付方式不匹配: %s, tradeNo=%s", order.PaymentMethod, verifyInfo.ServiceTradeNo)
 		_, _ = c.Writer.Write([]byte("fail"))
 		return

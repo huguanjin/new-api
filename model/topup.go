@@ -12,17 +12,34 @@ import (
 )
 
 type TopUp struct {
-	Id            int     `json:"id"`
-	UserId        int     `json:"user_id" gorm:"index"`
-	Username      string  `json:"username" gorm:"-"`
-	Amount        int64   `json:"amount"`
-	Money         float64 `json:"money"`
-	TradeNo       string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
-	PaymentMethod string  `json:"payment_method" gorm:"type:varchar(50)"`
-	CreateTime    int64   `json:"create_time"`
-	CompleteTime  int64   `json:"complete_time"`
-	Status        string  `json:"status"`
+	Id              int     `json:"id"`
+	UserId          int     `json:"user_id" gorm:"index"`
+	Username        string  `json:"username" gorm:"-"`
+	Amount          int64   `json:"amount"`
+	Money           float64 `json:"money"`
+	TradeNo         string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
+	PaymentMethod   string  `json:"payment_method" gorm:"type:varchar(50)"`
+	PaymentProvider string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
+	CreateTime      int64   `json:"create_time"`
+	CompleteTime    int64   `json:"complete_time"`
+	Status          string  `json:"status"`
 }
+
+const (
+	PaymentMethodEpay         = "epay"
+	PaymentMethodStripe       = "stripe"
+	PaymentMethodCreem        = "creem"
+	PaymentMethodWaffo        = "waffo"
+	PaymentMethodWaffoPancake = "waffo_pancake"
+)
+
+const (
+	PaymentProviderEpay         = "epay"
+	PaymentProviderStripe       = "stripe"
+	PaymentProviderCreem        = "creem"
+	PaymentProviderWaffo        = "waffo"
+	PaymentProviderWaffoPancake = "waffo_pancake"
+)
 
 func SumTopUpMoneyByDate(startTimestamp int64, endTimestamp int64) (float64, error) {
 	var result struct {
@@ -92,7 +109,11 @@ func Recharge(referenceId string, customerId string) (err error) {
 		}
 
 		// Fix-4: 支付方式验证 — Recharge 仅用于 stripe 回调
-		if topUp.PaymentMethod != "stripe" {
+		if topUp.PaymentProvider != "" && topUp.PaymentProvider != PaymentProviderStripe {
+			return errors.New("支付方式不匹配")
+		}
+		// 向后兼容：旧订单没有 PaymentProvider，fallback 到 PaymentMethod 检查
+		if topUp.PaymentProvider == "" && topUp.PaymentMethod != PaymentMethodStripe {
 			return errors.New("支付方式不匹配")
 		}
 
@@ -294,7 +315,7 @@ func ManualCompleteTopUp(tradeNo string) error {
 		// 计算应充值额度：
 		// - Stripe 订单：Money 代表经分组倍率换算后的美元数量，直接 * QuotaPerUnit
 		// - 其他订单（如易支付）：Amount 为美元数量，* QuotaPerUnit
-		if topUp.PaymentMethod == "stripe" {
+		if topUp.PaymentMethod == PaymentProviderStripe {
 			dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
 			quotaToAdd = int(decimal.NewFromFloat(topUp.Money).Mul(dQuotaPerUnit).IntPart())
 		} else {

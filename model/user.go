@@ -49,6 +49,7 @@ type User struct {
 	CommissionBalance float64       `json:"commission_balance" gorm:"type:decimal(10,2);default:0;column:commission_balance"` // 可提现返利余额（元）
 	CommissionTotal   float64       `json:"commission_total" gorm:"type:decimal(10,2);default:0;column:commission_total"`     // 累计返利总额（元）
 	CreatedAt        int64          `json:"created_at" gorm:"autoCreateTime"`
+	LastLoginAt      int64          `json:"last_login_at" gorm:"default:0;column:last_login_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
@@ -1036,6 +1037,12 @@ func DeltaCreatorQuota(creatorId int, delta int) error {
 func GetRootUser() (user *User) {
 	DB.Where("role = ?", common.RoleRootUser).First(&user)
 	return user
+}
+
+func UpdateUserLastLoginAt(id int) {
+	if err := DB.Model(&User{}).Where("id = ?", id).Update("last_login_at", common.GetTimestamp()).Error; err != nil {
+		common.SysLog("failed to update user last_login_at: " + err.Error())
+	}
 }
 
 func UpdateUserUsedQuotaAndRequestCount(id int, quota int) {

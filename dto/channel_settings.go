@@ -43,6 +43,13 @@ type ChannelOtherSettings struct {
 	// GeminiBase64ToUrlThresholdKB is the minimum base64-decoded image size in KiB that
 	// triggers the upload. 0 means use the default of 512 KiB.
 	GeminiBase64ToUrlThresholdKB int `json:"gemini_base64_to_url_threshold_kb,omitempty"`
+	// Upstream model update settings
+	UpstreamModelUpdateCheckEnabled      bool     `json:"upstream_model_update_check_enabled,omitempty"`        // 是否启用上游模型更新检测
+	UpstreamModelUpdateAutoSyncEnabled   bool     `json:"upstream_model_update_auto_sync_enabled,omitempty"`    // 是否自动同步上游新增模型
+	UpstreamModelUpdateLastCheckTime     int64    `json:"upstream_model_update_last_check_time,omitempty"`      // 上次检测时间
+	UpstreamModelUpdateLastDetectedModels []string `json:"upstream_model_update_last_detected_models,omitempty"` // 上次检测到的新增模型列表
+	UpstreamModelUpdateLastRemovedModels  []string `json:"upstream_model_update_last_removed_models,omitempty"`  // 上次检测到的删除模型列表
+	UpstreamModelUpdateIgnoredModels      []string `json:"upstream_model_update_ignored_models,omitempty"`       // 忽略检测的模型列表
 }
 
 func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {

@@ -106,6 +106,9 @@ func main() {
 
 	go controller.AutomaticallyTestChannels()
 
+	// Upstream model update task (periodic detection of upstream model changes)
+	go controller.StartChannelUpstreamModelUpdateTask()
+
 	// Codex credential auto-refresh check every 10 minutes, refresh when expires within 1 day
 	service.StartCodexCredentialAutoRefreshTask()
 
