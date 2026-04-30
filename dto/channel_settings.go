@@ -9,6 +9,8 @@ type ChannelSettings struct {
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
 	// 渠道级别「无输出不扣费」：开启后此渠道请求无输出（completionTokens == 0）时不扣费
 	NoOutputNoBilling bool `json:"no_output_no_billing,omitempty"`
+	// 渠道级别「生图空返视为错误」：开启后图片生成返回空数组时视为错误（非 200），记录错误日志，不扣费
+	ImageEmptyResponseAsError bool `json:"image_empty_response_as_error,omitempty"`
 }
 
 type VertexKeyType string

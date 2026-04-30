@@ -479,8 +479,16 @@ type GeminiImageRequest struct {
 	Parameters GeminiImageParameters `json:"parameters"`
 }
 
+// GeminiImageInstanceImage holds the reference image data for Imagen editing requests.
+// See: https://cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/Shared.Types/VisionGenerativeModelInstance
+type GeminiImageInstanceImage struct {
+	BytesBase64Encoded string `json:"bytesBase64Encoded"`
+	MimeType           string `json:"mimeType"`
+}
+
 type GeminiImageInstance struct {
-	Prompt string `json:"prompt"`
+	Prompt string                     `json:"prompt"`
+	Image  *GeminiImageInstanceImage  `json:"image,omitempty"`
 }
 
 type GeminiImageParameters struct {
@@ -488,6 +496,7 @@ type GeminiImageParameters struct {
 	AspectRatio      string `json:"aspectRatio,omitempty"`
 	PersonGeneration string `json:"personGeneration,omitempty"`
 	ImageSize        string `json:"imageSize,omitempty"`
+	EditMode         string `json:"editMode,omitempty"`
 }
 
 type GeminiImageResponse struct {

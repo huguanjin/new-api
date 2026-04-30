@@ -1,12 +1,14 @@
 ﻿package gemini
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
@@ -93,10 +95,6 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 		}
 	}
 
-	if err := convertBase64InlineDataToURL(request, info); err != nil {
-		return nil, err
-	}
-
 	return request, nil
 }
 
@@ -112,6 +110,56 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
 	//TODO implement me
 	return nil, errors.New("not implemented")
+}
+
+// extractImageForEditing extracts the reference image from the request for Imagen editing.
+// It tries multipart file upload first, then falls back to request.Image (base64 data URI or URL).
+// Returns the MIME type and pure base64-encoded data (without data URI prefix).
+func extractImageForEditing(c *gin.Context, request dto.ImageRequest) (mimeType string, base64Data string, err error) {
+	// Case 1: multipart/form-data file upload (standard OpenAI image edit API format)
+	// Ensure the multipart form has been parsed; fall back to parsing it here if not yet done.
+	if c.Request.MultipartForm == nil {
+		_, _ = c.MultipartForm()
+	}
+	if mf := c.Request.MultipartForm; mf != nil && mf.File != nil {
+		for _, key := range []string{"image", "image[]"} {
+			if fhs, ok := mf.File[key]; ok && len(fhs) > 0 {
+				f, openErr := fhs[0].Open()
+				if openErr != nil {
+					return "", "", openErr
+				}
+				data, readErr := io.ReadAll(f)
+				_ = f.Close()
+				if readErr != nil {
+					return "", "", readErr
+				}
+				if len(data) > 0 {
+					detectedMime := http.DetectContentType(data)
+					return detectedMime, base64.StdEncoding.EncodeToString(data), nil
+				}
+			}
+		}
+	}
+
+	// Case 2: JSON body with request.Image as a base64 data URI or URL string
+	if len(request.Image) > 0 {
+		var imgStr string
+		if unmarshalErr := common.Unmarshal(request.Image, &imgStr); unmarshalErr == nil && imgStr != "" {
+			if strings.HasPrefix(imgStr, "data:") {
+				mt, b64, decErr := service.DecodeBase64FileData(imgStr)
+				if decErr == nil {
+					return mt, b64, nil
+				}
+			} else if strings.HasPrefix(imgStr, "http://") || strings.HasPrefix(imgStr, "https://") {
+				mt, b64, dlErr := service.GetImageFromUrl(imgStr)
+				if dlErr == nil {
+					return mt, b64, nil
+				}
+			}
+		}
+	}
+
+	return "", "", nil
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
@@ -175,6 +223,24 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 			imageSize = "1K"
 		}
 		geminiRequest.Parameters.ImageSize = imageSize
+	}
+
+	// Handle image editing: extract reference image and attach to the instance.
+	// The Gemini Imagen API determines editing vs. generation based on whether
+	// the "image" field is present in the instance.
+	// See: https://cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/Shared.Types/VisionGenerativeModelInstance
+	if info.RelayMode == constant.RelayModeImagesEdits {
+		mimeType, base64Data, err := extractImageForEditing(c, request)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract reference image for editing: %w", err)
+		}
+		if base64Data != "" {
+			geminiRequest.Instances[0].Image = &dto.GeminiImageInstanceImage{
+				BytesBase64Encoded: base64Data,
+				MimeType:           mimeType,
+			}
+			geminiRequest.Parameters.EditMode = "EDIT_MODE_DEFAULT"
+		}
 	}
 
 	return geminiRequest, nil

@@ -1,6 +1,8 @@
 package openai
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,9 +14,9 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel/openrouter"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
-
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -570,6 +572,22 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	err = common.Unmarshal(responseBody, &usageResp)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+
+	// 渠道级「生图空返视为错误」检测：在写入响应体之前检查，确保不会将空结果发回客户端
+	if info.ChannelSetting.ImageEmptyResponseAsError &&
+		(info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) {
+		var imageResp struct {
+			Data []json.RawMessage `json:"data"`
+		}
+		if jsonErr := common.Unmarshal(responseBody, &imageResp); jsonErr == nil && len(imageResp.Data) == 0 {
+			return nil, types.NewOpenAIError(
+				errors.New("请求违反内容政策，图片生成被拦截"),
+				types.ErrorCodePromptBlocked,
+				http.StatusBadRequest,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
 	}
 
 	// 写入新的 response body

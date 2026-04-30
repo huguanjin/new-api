@@ -205,6 +205,8 @@ const EditChannelModal = (props) => {
     claude_beta_query: false,
     // 渠道级别「无输出不扣费」开关
     no_output_no_billing: false,
+    // 渠道级别「生图空返视为错误」开关
+    image_empty_response_as_error: false,
   };
   const [batch, setBatch] = useState(false);
   const [multiToSingle, setMultiToSingle] = useState(false);
@@ -814,6 +816,8 @@ const EditChannelModal = (props) => {
             parsedSettings.system_prompt_override || false;
           data.no_output_no_billing =
             parsedSettings.no_output_no_billing || false;
+          data.image_empty_response_as_error =
+            parsedSettings.image_empty_response_as_error || false;
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
@@ -823,6 +827,7 @@ const EditChannelModal = (props) => {
           data.system_prompt = '';
           data.system_prompt_override = false;
           data.no_output_no_billing = false;
+          data.image_empty_response_as_error = false;
         }
       } else {
         data.force_format = false;
@@ -832,6 +837,7 @@ const EditChannelModal = (props) => {
         data.system_prompt = '';
         data.system_prompt_override = false;
         data.no_output_no_billing = false;
+        data.image_empty_response_as_error = false;
       }
 
       if (data.settings) {
@@ -1636,6 +1642,7 @@ const EditChannelModal = (props) => {
       system_prompt: localInputs.system_prompt || '',
       system_prompt_override: localInputs.system_prompt_override || false,
       no_output_no_billing: localInputs.no_output_no_billing === true,
+      image_empty_response_as_error: localInputs.image_empty_response_as_error === true,
     };
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
@@ -1694,6 +1701,7 @@ const EditChannelModal = (props) => {
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
     delete localInputs.no_output_no_billing;
+    delete localInputs.image_empty_response_as_error;
     delete localInputs.is_enterprise_account;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
@@ -3801,6 +3809,21 @@ const EditChannelModal = (props) => {
                       }
                       extraText={t(
                         '开启后，当该渠道请求无输出（如图片生成被审核拦截导致无图片返回）时，将不扣费。优先于运营设置中的全局模型列表',
+                      )}
+                    />
+                    <Form.Switch
+                      field='image_empty_response_as_error'
+                      label={t('生图空返视为错误')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelSettingsChange(
+                          'image_empty_response_as_error',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '开启后，图片生成返回空时视为错误（返回非 200），记录错误日志并不扣费，提示内容政策拦截',
                       )}
                     />
                   </Card>

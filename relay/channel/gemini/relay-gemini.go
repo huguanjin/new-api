@@ -1615,6 +1615,9 @@ func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	}
 
 	if len(geminiResponse.Predictions) == 0 {
+		if info.ChannelSetting.ImageEmptyResponseAsError {
+			return nil, types.NewOpenAIError(errors.New("请求违反内容政策，图片生成被拦截"), types.ErrorCodePromptBlocked, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
 		if msg := operation_setting.GetImagePolicyBlockMessage(); msg != "" {
 			statusCode := operation_setting.GetImagePolicyBlockStatusCode()
 			return nil, types.NewOpenAIError(errors.New(msg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
@@ -1639,6 +1642,9 @@ func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 
 	// 所有图片都被安全过滤，不扣费并返回错误
 	if len(openAIResponse.Data) == 0 {
+		if info.ChannelSetting.ImageEmptyResponseAsError {
+			return nil, types.NewOpenAIError(errors.New("请求违反内容政策，图片生成被拦截"), types.ErrorCodePromptBlocked, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
 		if msg := operation_setting.GetImagePolicyBlockMessage(); msg != "" {
 			statusCode := operation_setting.GetImagePolicyBlockStatusCode()
 			return nil, types.NewOpenAIError(errors.New(msg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
