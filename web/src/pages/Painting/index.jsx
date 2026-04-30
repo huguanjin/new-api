@@ -59,11 +59,27 @@ const IMAGE_SIZES = [
   { value: '4K', label: '4K' },
 ];
 
-const GPT_IMAGE_SIZES = [
-  { value: '1024x1024', label: '1024×1024' },
+const GPT_IMAGE_SIZES_STANDARD = [
+  { value: '1024x1024', label: '1K (1024×1024)' },
   { value: '1536x1024', label: '1536×1024 横版' },
   { value: '1024x1536', label: '1024×1536 竖版' },
   { value: 'auto', label: 'auto' },
+];
+
+const GPT_IMAGE_SIZES_VIP = [
+  { value: '1024x1024', label: '1K (1024×1024)' },
+  { value: '1536x1024', label: '1536×1024 横版' },
+  { value: '1024x1536', label: '1024×1536 竖版' },
+  { value: '2048x2048', label: '2K (2048×2048)' },
+  { value: '4096x4096', label: '4K (4096×4096)' },
+  { value: 'auto', label: 'auto' },
+];
+
+const GPT_IMAGE_QUALITY = [
+  { value: 'auto', label: 'auto' },
+  { value: 'low', label: 'low' },
+  { value: 'medium', label: 'medium' },
+  { value: 'high', label: 'high' },
 ];
 
 function fileToBase64(file) {
@@ -109,6 +125,7 @@ export default function Painting() {
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [imageSize, setImageSize] = useState('1K');
   const [gptImageSize, setGptImageSize] = useState('1024x1024');
+  const [gptImageQuality, setGptImageQuality] = useState('auto');
   const [referenceImages, setReferenceImages] = useState([]);
   const [savingIndex, setSavingIndex] = useState(-1);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -216,10 +233,11 @@ export default function Painting() {
       tokenKey,
       aspectRatio,
       imageSize: selectedProvider === 'openai_image' ? gptImageSize : imageSize,
+      quality: selectedProvider === 'openai_image' ? gptImageQuality : undefined,
       referenceImages,
       imageProvider: selectedProvider,
     });
-  }, [prompt, model, tokenKey, aspectRatio, imageSize, referenceImages, generate, t]);
+  }, [prompt, model, tokenKey, aspectRatio, imageSize, gptImageSize, gptImageQuality, referenceImages, generate, t]);
 
   // Save image to gallery
   const handleSave = useCallback(async (imageData, index) => {
@@ -404,15 +422,28 @@ export default function Painting() {
                     />
                   </div>
                 ) : (
-                  <div style={{ flex: '1 1 160px' }}>
-                    <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>{t('图片尺寸')}</Text>
-                    <Select
-                      value={gptImageSize}
-                      onChange={setGptImageSize}
-                      style={{ width: '100%' }}
-                      optionList={GPT_IMAGE_SIZES}
-                    />
-                  </div>
+                  <>
+                    <div style={{ flex: '1 1 160px' }}>
+                      <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>{t('图片尺寸')}</Text>
+                      <Select
+                        value={gptImageSize}
+                        onChange={setGptImageSize}
+                        style={{ width: '100%' }}
+                        optionList={model === 'gpt-image-2-vip' ? GPT_IMAGE_SIZES_VIP : GPT_IMAGE_SIZES_STANDARD}
+                      />
+                    </div>
+                    {model === 'gpt-image-2-vip' && (
+                      <div style={{ flex: '1 1 120px' }}>
+                        <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>{t('图片质量')}</Text>
+                        <Select
+                          value={gptImageQuality}
+                          onChange={setGptImageQuality}
+                          style={{ width: '100%' }}
+                          optionList={GPT_IMAGE_QUALITY}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </Card>

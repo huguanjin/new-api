@@ -7,7 +7,7 @@ export function usePaintingGenerate() {
   const [error, setError] = useState(null);
 
   const generate = useCallback(
-    async ({ prompt, model, tokenKey, aspectRatio, imageSize, referenceImages, imageProvider }) => {
+    async ({ prompt, model, tokenKey, aspectRatio, imageSize, quality, referenceImages, imageProvider }) => {
       setLoading(true);
       setError(null);
       setResult(null);
@@ -22,6 +22,12 @@ export function usePaintingGenerate() {
             size: imageSize || '1024x1024',
             response_format: 'b64_json',
           };
+          if (quality) body.quality = quality;
+          // Pass reference images as data URIs via the urls[] extension field.
+          // GRSAI upstream accepts both HTTP URLs and base64 data URIs in urls[].
+          if (referenceImages && referenceImages.length > 0) {
+            body.urls = referenceImages.map((img) => img.preview);
+          }
           const serverAddress = getServerAddress();
           const response = await fetch(`${serverAddress}/v1/images/generations`, {
             method: 'POST',

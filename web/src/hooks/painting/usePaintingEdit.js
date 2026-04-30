@@ -6,7 +6,7 @@ export function usePaintingEdit() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const edit = useCallback(async ({ prompt, model, tokenKey, imageFile, size }) => {
+  const edit = useCallback(async ({ prompt, model, tokenKey, imageFile, size, quality }) => {
     setLoading(true);
     setError(null);
     setResult(null);
@@ -18,6 +18,7 @@ export function usePaintingEdit() {
       formData.append('model', model);
       formData.append('n', '1');
       if (size) formData.append('size', size);
+      if (quality) formData.append('quality', quality);
 
       const serverAddress = getServerAddress();
       // Do NOT set Content-Type — browser sets multipart/form-data with boundary automatically

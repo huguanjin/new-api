@@ -23,11 +23,27 @@ import { usePaintingEdit } from '../../hooks/painting/usePaintingEdit';
 
 const { Text } = Typography;
 
-const GPT_IMAGE_SIZES = [
-  { value: '1024x1024', label: '1024×1024' },
+const GPT_IMAGE_SIZES_STANDARD = [
+  { value: '1024x1024', label: '1K (1024×1024)' },
   { value: '1536x1024', label: '1536×1024 横版' },
   { value: '1024x1536', label: '1024×1536 竖版' },
   { value: 'auto', label: 'auto' },
+];
+
+const GPT_IMAGE_SIZES_VIP = [
+  { value: '1024x1024', label: '1K (1024×1024)' },
+  { value: '1536x1024', label: '1536×1024 横版' },
+  { value: '1024x1536', label: '1024×1536 竖版' },
+  { value: '2048x2048', label: '2K (2048×2048)' },
+  { value: '4096x4096', label: '4K (4096×4096)' },
+  { value: 'auto', label: 'auto' },
+];
+
+const GPT_IMAGE_QUALITY = [
+  { value: 'auto', label: 'auto' },
+  { value: 'low', label: 'low' },
+  { value: 'medium', label: 'medium' },
+  { value: 'high', label: 'high' },
 ];
 
 export default function ImageEditTool({
@@ -46,6 +62,7 @@ export default function ImageEditTool({
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [editSize, setEditSize] = useState('1024x1024');
+  const [editQuality, setEditQuality] = useState('auto');
   const [savingIndex, setSavingIndex] = useState(-1);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewSrc, setPreviewSrc] = useState('');
@@ -83,8 +100,8 @@ export default function ImageEditTool({
       Toast.warning(t('请先在模型管理中配置 GPT Image 绘画模型'));
       return;
     }
-    await edit({ prompt: prompt.trim(), model: editModel, tokenKey, imageFile, size: editSize });
-  }, [prompt, imageFile, tokenKey, editModel, editSize, edit, t]);
+    await edit({ prompt: prompt.trim(), model: editModel, tokenKey, imageFile, size: editSize, quality: editModel === 'gpt-image-2-vip' ? editQuality : undefined });
+  }, [prompt, imageFile, tokenKey, editModel, editSize, editQuality, edit, t]);
 
   const handleSave = useCallback(
     async (imageData, index) => {
@@ -173,9 +190,23 @@ export default function ImageEditTool({
                 value={editSize}
                 onChange={setEditSize}
                 style={{ width: '100%' }}
-                optionList={GPT_IMAGE_SIZES}
+                optionList={editModel === 'gpt-image-2-vip' ? GPT_IMAGE_SIZES_VIP : GPT_IMAGE_SIZES_STANDARD}
               />
             </div>
+            {/* Quality (vip only) */}
+            {editModel === 'gpt-image-2-vip' && (
+              <div style={{ flex: '1 1 120px' }}>
+                <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>
+                  {t('图片质量')}
+                </Text>
+                <Select
+                  value={editQuality}
+                  onChange={setEditQuality}
+                  style={{ width: '100%' }}
+                  optionList={GPT_IMAGE_QUALITY}
+                />
+              </div>
+            )}
           </div>
         </Card>
 

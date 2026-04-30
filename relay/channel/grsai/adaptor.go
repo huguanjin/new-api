@@ -31,7 +31,8 @@ type Adaptor struct {
 type drawRequest struct {
 	Model        string   `json:"model"`
 	Prompt       string   `json:"prompt"`
-	Size         string   `json:"size,omitempty"`
+	AspectRatio  string   `json:"aspectRatio,omitempty"`
+	Quality      string   `json:"quality,omitempty"`
 	Urls         []string `json:"urls,omitempty"`
 	ShutProgress bool     `json:"shutProgress"`
 }
@@ -73,15 +74,17 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	body := drawRequest{
 		Model:        model,
 		Prompt:       request.Prompt,
-		Size:         convertSize(request.Size),
+		AspectRatio:  convertSize(request.Size, model),
+		Quality:      request.Quality,
 		ShutProgress: false,
 	}
 
-	if info.RelayMode == relayconstant.RelayModeImagesEdits {
-		// Collect reference image URLs for grsai's urls[] field.
-		var imageURLs []string
+	// Collect reference image URLs for grsai's urls[] field.
+	// Supported for both generations (optional) and edits (required) modes.
+	var imageURLs []string
 
-		// Case 1: multipart/form-data — read uploaded files as base64 data URIs
+	if info.RelayMode == relayconstant.RelayModeImagesEdits {
+		// Case 1 (edits only): multipart/form-data — read uploaded files as base64 data URIs
 		mf := c.Request.MultipartForm
 		if mf != nil && mf.File != nil {
 			var fileHeaders []*multipart.FileHeader
@@ -110,20 +113,24 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 				imageURLs = append(imageURLs, "data:"+mime+";base64,"+b64)
 			}
 		}
+	}
 
-		// Case 2: JSON body with extra "urls" field — {"urls": ["https://..."]}
-		if len(imageURLs) == 0 {
-			if urlsRaw, ok := request.Extra["urls"]; ok {
-				var urls []string
-				if err := common.Unmarshal(urlsRaw, &urls); err == nil {
-					imageURLs = urls
-				}
+	// Case 2: JSON body with extra "urls" field — applies to both generations and edits.
+	// For generations: optional reference images sent as data URIs or HTTP URLs.
+	// For edits: fallback when no multipart files were provided.
+	if len(imageURLs) == 0 {
+		if urlsRaw, ok := request.Extra["urls"]; ok {
+			var urls []string
+			if err := common.Unmarshal(urlsRaw, &urls); err == nil {
+				imageURLs = urls
 			}
 		}
+	}
 
-		if len(imageURLs) == 0 {
-			return nil, errors.New("image edit request requires at least one reference image (upload a file or pass urls[] in JSON body)")
-		}
+	if info.RelayMode == relayconstant.RelayModeImagesEdits && len(imageURLs) == 0 {
+		return nil, errors.New("image edit request requires at least one reference image (upload a file or pass urls[] in JSON body)")
+	}
+	if len(imageURLs) > 0 {
 		body.Urls = imageURLs
 	}
 
@@ -132,7 +139,9 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 
 // convertSize maps OpenAI pixel sizes to grsai ratio strings.
 // If the value already looks like a ratio (contains ":"), pass it through.
-func convertSize(size string) string {
+// For gpt-image-2-vip, non-standard pixel sizes (e.g. "2048x2048") are passed
+// through directly so the upstream can handle 2k+ resolutions.
+func convertSize(size string, model string) string {
 	if strings.Contains(size, ":") {
 		return size
 	}
@@ -148,6 +157,11 @@ func convertSize(size string) string {
 	case "720x1280":
 		return "9:16"
 	default:
+		// For pixel-format sizes not in the standard map (e.g. "2048x2048"),
+		// pass through directly — gpt-image-2-vip supports 2k+ pixel values.
+		if strings.Contains(size, "x") {
+			return size
+		}
 		return "auto"
 	}
 }
