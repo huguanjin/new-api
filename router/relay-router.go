@@ -166,6 +166,12 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.DELETE("/models/:model", controller.RelayNotImplemented)
 	}
 
+	// Image task query — read-only DB lookup, TokenAuth only, no upstream relay
+	{
+		imageTaskQueryRouter := relayV1Router.Group("")
+		imageTaskQueryRouter.GET("/images/tasks/:task_id", controller.GetImageTask)
+	}
+
 	relayMjRouter := router.Group("/mj")
 	relayMjRouter.Use(middleware.RouteTag("relay"))
 	relayMjRouter.Use(middleware.SystemPerformanceCheck())

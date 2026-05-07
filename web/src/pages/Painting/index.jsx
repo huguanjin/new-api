@@ -59,20 +59,53 @@ const IMAGE_SIZES = [
   { value: '4K', label: '4K' },
 ];
 
-const GPT_IMAGE_SIZES_STANDARD = [
-  { value: '1024x1024', label: '1K (1024×1024)' },
-  { value: '1536x1024', label: '1536×1024 横版' },
-  { value: '1024x1536', label: '1024×1536 竖版' },
-  { value: 'auto', label: 'auto' },
+const GPT_IMAGE_ASPECT_RATIOS = [
+  { value: '1024x1024', label: '1:1 (1024×1024 · 1K)' },
+  { value: '1280x720',  label: '16:9 (1280×720 · 1K)' },
+  { value: '720x1280',  label: '9:16 (720×1280 · 1K)' },
+  { value: '1152x864',  label: '4:3 (1152×864 · 1K)' },
+  { value: '864x1152',  label: '3:4 (864×1152 · 1K)' },
+  { value: '1248x832',  label: '3:2 (1248×832 · 1K)' },
+  { value: '832x1248',  label: '2:3 (832×1248 · 1K)' },
+  { value: '1120x896',  label: '5:4 (1120×896 · 1K)' },
+  { value: '896x1120',  label: '4:5 (896×1120 · 1K)' },
+  { value: '1456x624',  label: '21:9 (1456×624 · 1K)' },
+  { value: 'auto',      label: 'auto' },
 ];
 
+// VIP 模型平铺列表，每项标注比例、像素尺寸和分辨率档位
 const GPT_IMAGE_SIZES_VIP = [
-  { value: '1024x1024', label: '1K (1024×1024)' },
-  { value: '1536x1024', label: '1536×1024 横版' },
-  { value: '1024x1536', label: '1024×1536 竖版' },
-  { value: '2048x2048', label: '2K (2048×2048)' },
-  { value: '4096x4096', label: '4K (4096×4096)' },
-  { value: 'auto', label: 'auto' },
+  { value: 'auto',      label: 'auto' },
+  { value: '1024x1024', label: '1:1 (1024×1024 · 1K)' },
+  { value: '2048x2048', label: '1:1 (2048×2048 · 2K)' },
+  { value: '2880x2880', label: '1:1 (2880×2880 · 4K)' },
+  { value: '1280x720',  label: '16:9 (1280×720 · 1K)' },
+  { value: '2560x1440', label: '16:9 (2560×1440 · 2K)' },
+  { value: '3840x2160', label: '16:9 (3840×2160 · 4K)' },
+  { value: '720x1280',  label: '9:16 (720×1280 · 1K)' },
+  { value: '1440x2560', label: '9:16 (1440×2560 · 2K)' },
+  { value: '2160x3840', label: '9:16 (2160×3840 · 4K)' },
+  { value: '1152x864',  label: '4:3 (1152×864 · 1K)' },
+  { value: '2304x1728', label: '4:3 (2304×1728 · 2K)' },
+  { value: '3264x2448', label: '4:3 (3264×2448 · 4K)' },
+  { value: '864x1152',  label: '3:4 (864×1152 · 1K)' },
+  { value: '1728x2304', label: '3:4 (1728×2304 · 2K)' },
+  { value: '2448x3264', label: '3:4 (2448×3264 · 4K)' },
+  { value: '1248x832',  label: '3:2 (1248×832 · 1K)' },
+  { value: '2496x1664', label: '3:2 (2496×1664 · 2K)' },
+  { value: '3504x2336', label: '3:2 (3504×2336 · 4K)' },
+  { value: '832x1248',  label: '2:3 (832×1248 · 1K)' },
+  { value: '1664x2496', label: '2:3 (1664×2496 · 2K)' },
+  { value: '2336x3504', label: '2:3 (2336×3504 · 4K)' },
+  { value: '1120x896',  label: '5:4 (1120×896 · 1K)' },
+  { value: '2240x1792', label: '5:4 (2240×1792 · 2K)' },
+  { value: '3200x2560', label: '5:4 (3200×2560 · 4K)' },
+  { value: '896x1120',  label: '4:5 (896×1120 · 1K)' },
+  { value: '1792x2240', label: '4:5 (1792×2240 · 2K)' },
+  { value: '2560x3200', label: '4:5 (2560×3200 · 4K)' },
+  { value: '1456x624',  label: '21:9 (1456×624 · 1K)' },
+  { value: '3024x1296', label: '21:9 (3024×1296 · 2K)' },
+  { value: '3696x1584', label: '21:9 (3696×1584 · 4K)' },
 ];
 
 const GPT_IMAGE_QUALITY = [
@@ -429,7 +462,7 @@ export default function Painting() {
                         value={gptImageSize}
                         onChange={setGptImageSize}
                         style={{ width: '100%' }}
-                        optionList={model === 'gpt-image-2-vip' ? GPT_IMAGE_SIZES_VIP : GPT_IMAGE_SIZES_STANDARD}
+                        optionList={model === 'gpt-image-2-vip' ? GPT_IMAGE_SIZES_VIP : GPT_IMAGE_ASPECT_RATIOS}
                       />
                     </div>
                     {model === 'gpt-image-2-vip' && (

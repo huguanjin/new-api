@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -255,6 +257,20 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		)
 	}
 
+	// Collect upstream URLs and log them so admins can diagnose delivery failures.
+	var resultURLs []string
+	for _, r := range last.Results {
+		if r.URL != "" {
+			resultURLs = append(resultURLs, r.URL)
+		}
+	}
+	if len(resultURLs) > 0 {
+		common.LogInfo(c.Request.Context(), fmt.Sprintf(
+			"image generation result URLs (channel #%d): %s",
+			info.ChannelId, strings.Join(resultURLs, " | "),
+		))
+	}
+
 	// Download each result image and return as b64_json (frontend requires base64)
 	type imageItem struct {
 		B64Json string `json:"b64_json"`
@@ -262,6 +278,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	type imageResponse struct {
 		Created int64       `json:"created"`
 		Data    []imageItem `json:"data"`
+		TaskID  string      `json:"task_id,omitempty"`
 	}
 	items := make([]imageItem, 0, len(last.Results))
 	for _, r := range last.Results {
@@ -270,7 +287,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		}
 		_, b64, err := service.GetImageFromUrl(r.URL)
 		if err != nil {
-			common.LogError(c.Request.Context(), fmt.Sprintf("image generation: failed to download result image: %v", err))
+			common.LogError(c.Request.Context(), fmt.Sprintf("image generation: failed to download result image from %s: %v", r.URL, err))
 			continue
 		}
 		items = append(items, imageItem{B64Json: b64})
@@ -283,10 +300,51 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		)
 	}
 
+	// Persist task record so users can retrieve the original URLs later.
+	taskID := ""
+	if len(resultURLs) > 0 {
+		type urlItem struct {
+			URL string `json:"url"`
+		}
+		urlItems := make([]urlItem, 0, len(resultURLs))
+		for _, u := range resultURLs {
+			urlItems = append(urlItems, urlItem{URL: u})
+		}
+		prompt := ""
+		if imageReq, ok := info.Request.(*dto.ImageRequest); ok && imageReq != nil {
+			prompt = imageReq.Prompt
+		}
+		now := time.Now().Unix()
+		task := &model.Task{
+			Platform:   constant.TaskPlatformGrsaiImage,
+			UserId:     info.UserId,
+			ChannelId:  info.ChannelId,
+			Group:      info.UsingGroup,
+			Status:     model.TaskStatusSuccess,
+			Action:     constant.TaskActionGenerate,
+			Progress:   "100%",
+			SubmitTime: now,
+			FinishTime: now,
+			Properties: model.Properties{
+				Input:             prompt,
+				OriginModelName:   info.OriginModelName,
+				UpstreamModelName: info.UpstreamModelName,
+			},
+		}
+		task.SetData(urlItems)
+		task.TaskID = model.GenerateTaskID()
+		if err := task.Insert(); err != nil {
+			common.LogError(c.Request.Context(), fmt.Sprintf("image generation: failed to save task record: %v", err))
+		} else {
+			taskID = task.TaskID
+		}
+	}
+
 	info.SetFirstResponseTime()
 	c.JSON(http.StatusOK, imageResponse{
 		Created: time.Now().Unix(),
 		Data:    items,
+		TaskID:  taskID,
 	})
 
 	// Estimate token counts for log display (upstream never returns token usage).

@@ -124,18 +124,13 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		usage.(*dto.Usage).PromptTokens = int(imageN)
 	}
 
-	quality := "standard"
-	if request.Quality == "hd" {
-		quality = "hd"
-	}
-
 	var logContent []string
 
 	if len(request.Size) > 0 {
 		logContent = append(logContent, fmt.Sprintf("大小 %s", request.Size))
 	}
-	if len(quality) > 0 {
-		logContent = append(logContent, fmt.Sprintf("品质 %s", quality))
+	if len(request.Quality) > 0 {
+		logContent = append(logContent, fmt.Sprintf("品质 %s", request.Quality))
 	}
 	if imageN > 0 {
 		logContent = append(logContent, fmt.Sprintf("生成数量 %d", imageN))
