@@ -29,6 +29,8 @@ const ContentModal = ({
   setIsModalOpen,
   modalContent,
   isVideo,
+  isImage,
+  imageUrls,
 }) => {
   const { t } = useTranslation();
   const [videoError, setVideoError] = useState(false);
@@ -56,6 +58,69 @@ const ContentModal = ({
 
   const handleOpenInNewTab = () => {
     window.open(modalContent, '_blank');
+  };
+
+  const renderImageContent = () => {
+    const urls = Array.isArray(imageUrls) ? imageUrls : [];
+    if (urls.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <Text type='tertiary'>{t('暂无图片')}</Text>
+        </div>
+      );
+    }
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '12px',
+          justifyContent: 'center',
+          padding: '8px',
+        }}
+      >
+        {urls.map((url, idx) => (
+          <div
+            key={idx}
+            style={{
+              position: 'relative',
+              flex: urls.length === 1 ? '1 1 100%' : '0 1 calc(50% - 6px)',
+              maxWidth: urls.length === 1 ? '100%' : 'calc(50% - 6px)',
+            }}
+          >
+            <img
+              src={url}
+              alt={`${t('生成图片')} ${idx + 1}`}
+              style={{
+                width: '100%',
+                height: 'auto',
+                maxHeight: '60vh',
+                objectFit: 'contain',
+                borderRadius: '4px',
+                display: 'block',
+              }}
+            />
+            <div style={{ marginTop: '6px', textAlign: 'center' }}>
+              <Button
+                size='small'
+                icon={<IconExternalOpen />}
+                onClick={() => window.open(url, '_blank')}
+                style={{ marginRight: '6px' }}
+              >
+                {t('在新标签页中打开')}
+              </Button>
+              <Button
+                size='small'
+                icon={<IconCopy />}
+                onClick={() => navigator.clipboard.writeText(url)}
+              >
+                {t('复制链接')}
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const renderVideoContent = () => {
@@ -152,6 +217,9 @@ const ContentModal = ({
     );
   };
 
+  const isImageMode = isImage && !isVideo;
+  const isVideoMode = isVideo && !isImage;
+
   return (
     <Modal
       visible={isModalOpen}
@@ -159,16 +227,18 @@ const ContentModal = ({
       onCancel={() => setIsModalOpen(false)}
       closable={null}
       bodyStyle={{
-        height: isVideo ? '70vh' : '400px',
+        height: isVideoMode ? '70vh' : 'auto',
         maxHeight: '80vh',
         overflow: 'auto',
-        padding: isVideo && videoError ? '0' : '24px',
+        padding: isVideoMode && videoError ? '0' : '24px',
       }}
-      width={isVideo ? '90vw' : 800}
-      style={isVideo ? { maxWidth: 960 } : undefined}
+      width={isVideoMode || isImageMode ? '90vw' : 800}
+      style={isVideoMode || isImageMode ? { maxWidth: 960 } : undefined}
     >
-      {isVideo ? (
+      {isVideoMode ? (
         renderVideoContent()
+      ) : isImageMode ? (
+        renderImageContent()
       ) : (
         <p style={{ whiteSpace: 'pre-line' }}>{modalContent}</p>
       )}

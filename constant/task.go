@@ -18,6 +18,9 @@ const (
 	TaskActionReferenceGenerate = "referenceGenerate"
 	TaskActionRemix             = "remixGenerate"
 	TaskActionExtend            = "extendGenerate"
+
+	TaskActionImageGenerate = "imageGenerate" // 文生图（/v1/images/generations）
+	TaskActionImageEdit     = "imageEdit"     // 图生图（/v1/images/edits）
 )
 
 var SunoModel2Action = map[string]string{

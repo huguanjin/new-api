@@ -33,6 +33,7 @@ import {
   Hash,
   Video,
   Sparkles,
+  ImageIcon,
 } from 'lucide-react';
 import {
   TASK_ACTION_FIRST_TAIL_GENERATE,
@@ -40,6 +41,8 @@ import {
   TASK_ACTION_REFERENCE_GENERATE,
   TASK_ACTION_TEXT_GENERATE,
   TASK_ACTION_REMIX_GENERATE,
+  TASK_ACTION_IMAGE_GENERATE,
+  TASK_ACTION_IMAGE_EDIT,
 } from '../../../constants/common.constant';
 import { CHANNEL_OPTIONS } from '../../../constants/channel.constants';
 import { stringToColor } from '../../../helpers/render';
@@ -132,6 +135,18 @@ const renderType = (type, t) => {
       return (
         <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
           {t('视频Remix')}
+        </Tag>
+      );
+    case TASK_ACTION_IMAGE_GENERATE:
+      return (
+        <Tag color='cyan' shape='circle' prefixIcon={<ImageIcon size={14} />}>
+          {t('文生图')}
+        </Tag>
+      );
+    case TASK_ACTION_IMAGE_EDIT:
+      return (
+        <Tag color='teal' shape='circle' prefixIcon={<ImageIcon size={14} />}>
+          {t('图生图')}
         </Tag>
       );
     default:
@@ -240,6 +255,7 @@ export const getTaskLogsColumns = ({
   openContentModal,
   isAdminUser,
   openVideoModal,
+  openImageModal,
   openAudioModal,
 }) => {
   return [
@@ -427,6 +443,30 @@ export const getTaskLogsColumns = ({
               }}
             >
               {t('点击预览视频')}
+            </a>
+          );
+        }
+
+        // GRISA 图片预览
+        const isImageTask =
+          record.action === TASK_ACTION_IMAGE_GENERATE ||
+          record.action === TASK_ACTION_IMAGE_EDIT;
+        const hasImageData =
+          isSuccess &&
+          isImageTask &&
+          Array.isArray(record.data) &&
+          record.data.some((d) => d.url);
+        if (hasImageData) {
+          const urls = record.data.map((d) => d.url).filter(Boolean);
+          return (
+            <a
+              href='#'
+              onClick={(e) => {
+                e.preventDefault();
+                openImageModal(urls);
+              }}
+            >
+              {t('点击预览图片')}
             </a>
           );
         }

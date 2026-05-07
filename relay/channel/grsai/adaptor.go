@@ -315,13 +315,17 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			prompt = imageReq.Prompt
 		}
 		now := time.Now().Unix()
+		taskAction := constant.TaskActionImageGenerate
+		if info.RelayMode == relayconstant.RelayModeImagesEdits {
+			taskAction = constant.TaskActionImageEdit
+		}
 		task := &model.Task{
 			Platform:   constant.TaskPlatformGrsaiImage,
 			UserId:     info.UserId,
 			ChannelId:  info.ChannelId,
 			Group:      info.UsingGroup,
 			Status:     model.TaskStatusSuccess,
-			Action:     constant.TaskActionGenerate,
+			Action:     taskAction,
 			Progress:   "100%",
 			SubmitTime: now,
 			FinishTime: now,
