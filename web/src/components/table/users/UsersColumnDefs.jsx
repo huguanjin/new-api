@@ -42,6 +42,12 @@ const renderRole = (role, t) => {
           {t('普通用户')}
         </Tag>
       );
+    case 5:
+      return (
+        <Tag color='teal' shape='circle'>
+          {t('代理')}
+        </Tag>
+      );
     case 10:
       return (
         <Tag color='yellow' shape='circle'>
@@ -209,6 +215,7 @@ const renderOperations = (
     showResetPasskeyModal,
     showResetTwoFAModal,
     showUserSubscriptionsModal,
+    manageUser,
     t,
   },
 ) => {
@@ -222,6 +229,22 @@ const renderOperations = (
       name: t('订阅管理'),
       onClick: () => showUserSubscriptionsModal(record),
     },
+    {
+      node: 'divider',
+    },
+    record.role < 5
+      ? {
+          node: 'item',
+          name: t('设为代理'),
+          onClick: () => manageUser(record.id, 'promote_agent', record),
+        }
+      : record.role === 5
+        ? {
+            node: 'item',
+            name: t('取消代理'),
+            onClick: () => manageUser(record.id, 'demote_agent', record),
+          }
+        : null,
     {
       node: 'divider',
     },
@@ -244,7 +267,7 @@ const renderOperations = (
       type: 'danger',
       onClick: () => showDeleteModal(record),
     },
-  ];
+  ].filter(Boolean);
 
   return (
     <Space>
@@ -309,6 +332,7 @@ export const getUsersColumns = ({
   showResetPasskeyModal,
   showResetTwoFAModal,
   showUserSubscriptionsModal,
+  manageUser,
 }) => {
   return [
     {
@@ -373,6 +397,7 @@ export const getUsersColumns = ({
           showResetPasskeyModal,
           showResetTwoFAModal,
           showUserSubscriptionsModal,
+          manageUser,
           t,
         }),
     },

@@ -179,6 +179,27 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/subscription/epay/notify", controller.SubscriptionEpayNotify)
 		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		apiRouter.POST("/subscription/epay/return", controller.SubscriptionEpayReturn)
+
+		// Agent dashboard routes (requires agent role or above)
+		agentRoute := apiRouter.Group("/agent")
+		agentRoute.Use(middleware.AgentAuth())
+		{
+			agentRoute.GET("/overview", controller.AgentOverview)
+			agentRoute.GET("/users", controller.AgentInvitees)
+			agentRoute.GET("/settlements", controller.AgentSettlements)
+			agentRoute.GET("/topups", controller.AgentInviteeTopups)
+		}
+
+		// Agent admin routes (requires admin role or above)
+		agentAdminRoute := apiRouter.Group("/admin")
+		agentAdminRoute.Use(middleware.AdminAuth())
+		{
+			agentAdminRoute.GET("/agents", controller.AdminListAgents)
+			agentAdminRoute.POST("/agent/promote", controller.AdminPromoteAgent)
+			agentAdminRoute.POST("/agent/demote", controller.AdminDemoteAgent)
+			agentAdminRoute.POST("/commission/settle", controller.AdminTriggerSettlement)
+			agentAdminRoute.GET("/agent/:id/users", controller.AdminGetAgentInvitees)
+		}
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{

@@ -22,7 +22,7 @@ import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import ErrorBoundary from './components/common/ui/ErrorBoundary';
 import User from './pages/User';
-import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
+import { AuthRedirect, PrivateRoute, AdminRoute, AgentRoute } from './helpers';
 import RegisterForm from './components/auth/RegisterForm';
 import LoginForm from './components/auth/LoginForm';
 import NotFound from './pages/NotFound';
@@ -48,6 +48,7 @@ import ModelDeploymentPage from './pages/ModelDeployment';
 import Playground from './pages/Playground';
 import Subscription from './pages/Subscription';
 import Withdrawal from './pages/Withdrawal';
+import Agent from './pages/Agent';
 import InvitedSubscriptions from './pages/InvitedSubscriptions';
 import OAuth2Callback from './components/auth/OAuth2Callback';
 import PersonalSetting from './components/settings/PersonalSetting';
@@ -149,6 +150,14 @@ function App() {
             <AdminRoute>
               <Withdrawal />
             </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/agent'
+          element={
+            <AgentRoute>
+              <Agent />
+            </AgentRoute>
           }
         />
         <Route

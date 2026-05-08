@@ -904,6 +904,26 @@ func ManageUser(c *gin.Context) {
 			return
 		}
 		user.Role = common.RoleAdminUser
+	case "promote_agent":
+		if myRole < common.RoleAdminUser {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "权限不足，需要管理员权限"})
+			return
+		}
+		if user.Role >= common.RoleAgentUser {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "用户已是代理或更高角色"})
+			return
+		}
+		user.Role = common.RoleAgentUser
+	case "demote_agent":
+		if myRole < common.RoleAdminUser {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "权限不足，需要管理员权限"})
+			return
+		}
+		if user.Role != common.RoleAgentUser {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "用户当前不是代理"})
+			return
+		}
+		user.Role = common.RoleCommonUser
 	case "demote":
 		if user.Role == common.RoleRootUser {
 			common.ApiErrorI18n(c, i18n.MsgUserCannotDemoteRootUser)

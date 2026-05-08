@@ -115,6 +115,9 @@ func main() {
 	// Subscription quota reset task (daily/weekly/monthly/custom)
 	service.StartSubscriptionQuotaResetTask()
 
+	// Agent monthly usage commission settlement task (runs on the 1st of each month)
+	service.StartAgentCommissionTask()
+
 	// Export task cleanup (delete expired export files every hour)
 	service.InitExportStorageDir()
 	service.StartExportCleanupTask()

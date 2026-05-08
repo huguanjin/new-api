@@ -215,6 +215,20 @@ func GetMaxUserId() int {
 	return user.Id
 }
 
+// GetUsersByRole 查询指定角色的所有用户（用于代理结算）
+func GetUsersByRole(role int) ([]*User, error) {
+	var users []*User
+	err := DB.Where("role = ?", role).Omit("password").Find(&users).Error
+	return users, err
+}
+
+// GetInviteesByAgentId 查询某代理邀请的所有下级用户
+func GetInviteesByAgentId(agentId int) ([]*User, error) {
+	var users []*User
+	err := DB.Where("inviter_id = ?", agentId).Omit("password").Find(&users).Error
+	return users, err
+}
+
 func GetAllUsers(pageInfo *common.PageInfo) (users []*User, total int64, err error) {
 	// Start transaction
 	tx := DB.Begin()

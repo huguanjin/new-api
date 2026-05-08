@@ -39,6 +39,9 @@ export default function SettingsCreditLimit(props) {
     SubscriptionCommissionRate: '',
     TopupCommissionRate: '',
     TopupCommissionMaxCount: '',
+    UsageCommissionRate: '',
+    UsageCommissionMinAccountAgeDays: '',
+    UsageCommissionMaxPerInviteePerMonth: '',
     'quota_setting.enable_free_model_pre_consume': true,
   });
   const refForm = useRef();
@@ -218,6 +221,60 @@ export default function SettingsCreditLimit(props) {
                     setInputs({
                       ...inputs,
                       TopupCommissionMaxCount: String(value),
+                    })
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('代理月度用量分红比例')}
+                  field={'UsageCommissionRate'}
+                  step={0.01}
+                  min={0}
+                  max={1}
+                  suffix={''}
+                  extraText={t('代理每月根据下级用量获得的分红比例，0为关闭，0.1表示10%')}
+                  placeholder={t('例如：0.05')}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      UsageCommissionRate: String(value),
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('代理分红最低账号年龄（天）')}
+                  field={'UsageCommissionMinAccountAgeDays'}
+                  step={1}
+                  min={0}
+                  suffix={t('天')}
+                  extraText={t('下级用户注册满多少天才参与分红计算，0为不限制')}
+                  placeholder={t('例如：30')}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      UsageCommissionMinAccountAgeDays: String(value),
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={6}>
+                <Form.InputNumber
+                  label={t('每下级每月分红上限（元）')}
+                  field={'UsageCommissionMaxPerInviteePerMonth'}
+                  step={0.01}
+                  min={0}
+                  suffix={'¥'}
+                  extraText={t('每个下级用户每月最多为代理贡献的分红金额，0为不限制')}
+                  placeholder={t('例如：50')}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      UsageCommissionMaxPerInviteePerMonth: String(value),
                     })
                   }
                 />

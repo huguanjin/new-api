@@ -281,6 +281,19 @@ func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp
 	return topups, total, nil
 }
 
+// GetTopUpsByInviterUserIds 查询指定用户 ID 列表的充值记录（代理用：下级充值记录）
+func GetTopUpsByInviterUserIds(userIds []int, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
+	if len(userIds) == 0 {
+		return nil, 0, nil
+	}
+	tx := DB.Model(&TopUp{}).Where("user_id IN ?", userIds)
+	if err = tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err = tx.Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&topups).Error
+	return topups, total, err
+}
+
 // ManualCompleteTopUp 管理员手动完成订单并给用户充值
 func ManualCompleteTopUp(tradeNo string) error {
 	if tradeNo == "" {

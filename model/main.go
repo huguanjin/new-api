@@ -288,6 +288,7 @@ func migrateDB() error {
 		&RedBookImage{},
 		&ExportTask{},
 		&ExternalSiteConfig{},
+		&CommissionSettlement{},
 	)
 	if err != nil {
 		return err

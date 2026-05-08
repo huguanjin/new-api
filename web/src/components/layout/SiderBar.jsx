@@ -25,7 +25,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useSidebar } from '../../hooks/common/useSidebar';
 import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime';
-import { isAdmin, isRoot, showError } from '../../helpers';
+import { isAdmin, isRoot, showError, isAgent } from '../../helpers';
 import SkeletonWrapper from './components/SkeletonWrapper';
 
 import { Nav, Divider, Button } from '@douyinfe/semi-ui';
@@ -40,6 +40,7 @@ const routerMap = {
   subscription: '/console/subscription',
   withdrawal: '/console/withdrawal',
   'invited-subscriptions': '/console/invited-subscriptions',
+  agent: '/console/agent',
   log: '/console/log',
   midjourney: '/console/midjourney',
   setting: '/console/setting',
@@ -147,6 +148,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         to: '/invited-subscriptions',
       },
       {
+        text: t('代理中心'),
+        itemKey: 'agent',
+        to: '/console/agent',
+        className: isAgent() ? '' : 'tableHiddle',
+      },
+      {
         text: t('个人设置'),
         itemKey: 'personal',
         to: '/personal',
@@ -160,7 +167,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
     });
 
     return filteredItems;
-  }, [t, isModuleVisible]);
+  }, [t, isModuleVisible, isAgent()]);
 
   const adminItems = useMemo(() => {
     const items = [

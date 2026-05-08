@@ -50,6 +50,9 @@ type streamChunk struct {
 	Status        string       `json:"status"`
 	FailureReason string       `json:"failure_reason"`
 	Error         string       `json:"error"`
+	// upstream error envelope (e.g. {"code":-1,"msg":"insufficient credits"})
+	Code          int          `json:"code"`
+	Msg           string       `json:"msg"`
 }
 
 // ── Adaptor interface ─────────────────────────────────────────────────────────
@@ -244,6 +247,19 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		}
 		return nil, types.NewOpenAIError(
 			fmt.Errorf("%s", humanMsg),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+		)
+	}
+
+	// Detect upstream error envelope: {"code":<non-zero>,"msg":"..."}.
+	if last.Code != 0 {
+		msg := last.Msg
+		if msg == "" {
+			msg = fmt.Sprintf("upstream error code %d", last.Code)
+		}
+		return nil, types.NewOpenAIError(
+			fmt.Errorf("image generation upstream error: %s", msg),
 			types.ErrorCodeInvalidRequest,
 			http.StatusBadRequest,
 		)

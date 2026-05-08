@@ -109,6 +109,9 @@ func InitOptionMap() {
 	common.OptionMap["SubscriptionCommissionRate"] = strconv.FormatFloat(common.SubscriptionCommissionRate, 'f', -1, 64)
 	common.OptionMap["TopupCommissionRate"] = strconv.FormatFloat(common.TopupCommissionRate, 'f', -1, 64)
 	common.OptionMap["TopupCommissionMaxCount"] = strconv.Itoa(common.TopupCommissionMaxCount)
+	common.OptionMap["UsageCommissionRate"] = strconv.FormatFloat(common.UsageCommissionRate, 'f', -1, 64)
+	common.OptionMap["UsageCommissionMinAccountAgeDays"] = strconv.Itoa(common.UsageCommissionMinAccountAgeDays)
+	common.OptionMap["UsageCommissionMaxPerInviteePerMonth"] = strconv.FormatFloat(common.UsageCommissionMaxPerInviteePerMonth, 'f', -1, 64)
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
 	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(setting.ModelRequestRateLimitCount)
@@ -406,6 +409,12 @@ func updateOptionMap(key string, value string) (err error) {
 		common.TopupCommissionRate, _ = strconv.ParseFloat(value, 64)
 	case "TopupCommissionMaxCount":
 		common.TopupCommissionMaxCount, _ = strconv.Atoi(value)
+	case "UsageCommissionRate":
+		common.UsageCommissionRate, _ = strconv.ParseFloat(value, 64)
+	case "UsageCommissionMinAccountAgeDays":
+		common.UsageCommissionMinAccountAgeDays, _ = strconv.Atoi(value)
+	case "UsageCommissionMaxPerInviteePerMonth":
+		common.UsageCommissionMaxPerInviteePerMonth, _ = strconv.ParseFloat(value, 64)
 	case "QuotaRemindThreshold":
 		common.QuotaRemindThreshold, _ = strconv.Atoi(value)
 	case "PreConsumedQuota":

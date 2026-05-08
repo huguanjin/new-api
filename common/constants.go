@@ -106,6 +106,11 @@ var QuotaForInvitee = 0
 var SubscriptionCommissionRate = 0.0 // 订阅返利比例，0 表示关闭，0.1 表示 10%
 var TopupCommissionRate = 0.0        // 充值返利比例，0 表示关闭，0.1 表示 10%
 var TopupCommissionMaxCount = 0      // 充值返利次数，0 表示不返利，正整数表示前N次充值可返利
+
+// 代理使用量月度分红配置
+var UsageCommissionRate = 0.0                  // 使用量分红比例，0 表示关闭，0.1 表示 10%
+var UsageCommissionMinAccountAgeDays = 30      // 下级账号最低存在天数（防批量注册套利）
+var UsageCommissionMaxPerInviteePerMonth = 0.0 // 每下级每月分红上限（元），0 表示不限
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false
@@ -143,12 +148,13 @@ const (
 const (
 	RoleGuestUser  = 0
 	RoleCommonUser = 1
+	RoleAgentUser  = 5
 	RoleAdminUser  = 10
 	RoleRootUser   = 100
 )
 
 func IsValidateRole(role int) bool {
-	return role == RoleGuestUser || role == RoleCommonUser || role == RoleAdminUser || role == RoleRootUser
+	return role == RoleGuestUser || role == RoleCommonUser || role == RoleAgentUser || role == RoleAdminUser || role == RoleRootUser
 }
 
 var (
