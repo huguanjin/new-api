@@ -88,6 +88,16 @@ const UsersFilters = ({
             size='small'
           />
         </div>
+        <div className='relative w-full md:w-36'>
+          <Form.Input
+            field='searchInviterId'
+            prefix={<IconSearch />}
+            placeholder={t('邀请人 ID')}
+            showClear
+            pure
+            size='small'
+          />
+        </div>
         <div className='flex gap-2 w-full md:w-auto'>
           <Button
             type='tertiary'

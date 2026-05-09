@@ -41,6 +41,9 @@ const InvitationCard = ({
   commissionRate,
   topupCommissionRate,
   topupCommissionMaxCount,
+  usageCommissionRate,
+  usageCommissionMinAgeDays,
+  usageCommissionMaxPerInvitee,
   affLink,
   handleAffLinkClick,
 }) => {
@@ -320,12 +323,50 @@ const InvitationCard = ({
               </div>
             )}
 
+            {usageCommissionRate > 0 && (
+              <div className='flex flex-col gap-2 p-3 rounded-lg' style={{ backgroundColor: 'var(--semi-color-fill-0)' }}>
+                <div className='flex items-start gap-2'>
+                  <Badge dot type='warning' />
+                  <Text type='tertiary' className='text-sm font-medium'>
+                    {t('代理分红')}
+                  </Text>
+                </div>
+                <div className='flex items-start gap-2'>
+                  <Badge dot type='warning' />
+                  <Text type='tertiary' className='text-sm'>
+                    {t('分红比例：{{rate}}', { rate: (usageCommissionRate * 100).toFixed(1) + '%' })}
+                  </Text>
+                </div>
+                {usageCommissionMinAgeDays > 0 && (
+                  <div className='flex items-start gap-2'>
+                    <Badge dot type='warning' />
+                    <Text type='tertiary' className='text-sm'>
+                      {t('下级账号需注册满 {{days}} 天方可参与分红计算', { days: usageCommissionMinAgeDays })}
+                    </Text>
+                  </div>
+                )}
+                {usageCommissionMaxPerInvitee > 0 ? (
+                  <div className='flex items-start gap-2'>
+                    <Badge dot type='warning' />
+                    <Text type='tertiary' className='text-sm'>
+                      {t('每位下级每月最多贡献分红 ¥{{max}}', { max: usageCommissionMaxPerInvitee.toFixed(2) })}
+                    </Text>
+                  </div>
+                ) : (
+                  <div className='flex items-start gap-2'>
+                    <Badge dot type='warning' />
+                    <Text type='tertiary' className='text-sm'>
+                      {t('每位下级每月贡献分红无上限')}
+                    </Text>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className='flex items-start gap-2'>
               <Badge dot type='success' />
               <Text type='tertiary' className='text-sm'>
-                <a href='/console/invited-subscriptions' style={{ color: 'var(--semi-color-link)' }}>
-                  {t('查看邀请用户订阅记录')}
-                </a>
+                {t('查看邀请用户订阅记录')}
               </Text>
             </div>
           </div>

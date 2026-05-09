@@ -41,6 +41,9 @@ const OperationSetting = () => {
     SubscriptionCommissionRate: 0,
     TopupCommissionRate: 0,
     TopupCommissionMaxCount: 0,
+    UsageCommissionRate: 0,
+    UsageCommissionMinAccountAgeDays: 0,
+    UsageCommissionMaxPerInviteePerMonth: 0,
     'quota_setting.enable_free_model_pre_consume': true,
 
     /* 通用设置 */

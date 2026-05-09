@@ -96,6 +96,9 @@ const TopUp = () => {
   const [commissionRate, setCommissionRate] = useState(0);
   const [topupCommissionRate, setTopupCommissionRate] = useState(0);
   const [topupCommissionMaxCount, setTopupCommissionMaxCount] = useState(0);
+  const [usageCommissionRate, setUsageCommissionRate] = useState(0);
+  const [usageCommissionMinAgeDays, setUsageCommissionMinAgeDays] = useState(0);
+  const [usageCommissionMaxPerInvitee, setUsageCommissionMaxPerInvitee] = useState(0);
 
   // 账单Modal状态
   const [openHistory, setOpenHistory] = useState(false);
@@ -586,6 +589,9 @@ const TopUp = () => {
         setCommissionRate(res.data.data.commission_rate || 0);
         setTopupCommissionRate(res.data.data.topup_commission_rate || 0);
         setTopupCommissionMaxCount(res.data.data.topup_commission_max_count || 0);
+        setUsageCommissionRate(res.data.data.usage_commission_rate || 0);
+        setUsageCommissionMinAgeDays(res.data.data.usage_commission_min_account_age_days || 0);
+        setUsageCommissionMaxPerInvitee(res.data.data.usage_commission_max_per_invitee || 0);
       }
     } catch (err) {
       // ignore
@@ -877,6 +883,9 @@ const TopUp = () => {
           commissionRate={commissionRate}
           topupCommissionRate={topupCommissionRate}
           topupCommissionMaxCount={topupCommissionMaxCount}
+          usageCommissionRate={usageCommissionRate}
+          usageCommissionMinAgeDays={usageCommissionMinAgeDays}
+          usageCommissionMaxPerInvitee={usageCommissionMaxPerInvitee}
           affLink={affLink}
           handleAffLinkClick={handleAffLinkClick}
         />
