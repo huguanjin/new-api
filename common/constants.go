@@ -74,6 +74,8 @@ var MemoryCacheEnabled bool
 
 var LogConsumeEnabled = true
 
+var RecordErrorIpLog = false
+
 var TLSInsecureSkipVerify bool
 var InsecureTLSConfig = &tls.Config{InsecureSkipVerify: true}
 

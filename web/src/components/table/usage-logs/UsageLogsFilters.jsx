@@ -120,6 +120,14 @@ const LogsFilters = ({
                 pure
                 size='small'
               />
+              <Form.Input
+                field='ip'
+                prefix={<IconSearch />}
+                placeholder={t('IP 地址')}
+                showClear
+                pure
+                size='small'
+              />
             </>
           )}
         </div>

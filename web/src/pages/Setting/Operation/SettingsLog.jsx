@@ -46,6 +46,7 @@ export default function SettingsLog(props) {
   const [loadingCleanHistoryLog, setLoadingCleanHistoryLog] = useState(false);
   const [inputs, setInputs] = useState({
     LogConsumeEnabled: false,
+    RecordErrorIpLog: false,
     historyTimestamp: dayjs().subtract(1, 'month').toDate(),
   });
   const refForm = useRef();
@@ -215,6 +216,28 @@ export default function SettingsLog(props) {
                     });
                   }}
                 />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Switch
+                  field={'RecordErrorIpLog'}
+                  label={t('全局错误日志IP记录')}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={(value) => {
+                    setInputs({
+                      ...inputs,
+                      RecordErrorIpLog: value,
+                    });
+                  }}
+                />
+                <Text
+                  type='tertiary'
+                  size='small'
+                  style={{ display: 'block', marginTop: 4, marginBottom: 8 }}
+                >
+                  {t('开启后，无论用户设置如何，错误类型日志均强制记录请求IP')}
+                </Text>
               </Col>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Spin spinning={loadingCleanHistoryLog}>
