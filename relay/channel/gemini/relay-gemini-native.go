@@ -1,9 +1,11 @@
 package gemini
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -12,6 +14,8 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -48,6 +52,19 @@ func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 	} else {
 		// 计算使用量（基于 UsageMetadata）
 		usage = buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata, info.GetEstimatePromptTokens())
+	}
+
+	// 渠道级「生图空返视为错误」检测：仅对支持图片生成的模型生效
+	if info.ChannelSetting.ImageEmptyResponseAsError &&
+		model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) &&
+		!nativeGeminiResponseHasImage(geminiResponse.Candidates) {
+		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, "gemini_native_image_empty")
+		msg := operation_setting.GetImagePolicyBlockMessage()
+		if msg == "" {
+			msg = "请求违反内容政策，图片生成被拦截"
+		}
+		statusCode := operation_setting.GetImagePolicyBlockStatusCode()
+		return nil, types.NewOpenAIError(errors.New(msg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
 	}
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
@@ -91,7 +108,11 @@ func NativeGeminiEmbeddingHandler(c *gin.Context, resp *http.Response, info *rel
 func GeminiTextGenerationStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	helper.SetEventStreamHeaders(c)
 
-	return geminiStreamHandler(c, info, resp, func(data string, geminiResponse *dto.GeminiChatResponse) bool {
+	var hasImage bool
+	usage, apiErr := geminiStreamHandler(c, info, resp, func(data string, geminiResponse *dto.GeminiChatResponse) bool {
+		if !hasImage && nativeGeminiResponseHasImage(geminiResponse.Candidates) {
+			hasImage = true
+		}
 		err := helper.StringData(c, data)
 		if err != nil {
 			logger.LogError(c, "failed to write stream data: "+err.Error())
@@ -100,4 +121,33 @@ func GeminiTextGenerationStreamHandler(c *gin.Context, info *relaycommon.RelayIn
 		info.SendResponseCount++
 		return true
 	})
+
+	// 渠道级「生图空返视为错误」检测：流式场景数据已写出，返回 error 仅影响日志分类和计费（不扣费）
+	if apiErr == nil &&
+		info.ChannelSetting.ImageEmptyResponseAsError &&
+		model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) &&
+		!hasImage {
+		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, "gemini_native_image_empty")
+		msg := operation_setting.GetImagePolicyBlockMessage()
+		if msg == "" {
+			msg = "请求违反内容政策，图片生成被拦截"
+		}
+		statusCode := operation_setting.GetImagePolicyBlockStatusCode()
+		return nil, types.NewOpenAIError(errors.New(msg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
+	}
+
+	return usage, apiErr
+}
+
+// nativeGeminiResponseHasImage 检查 candidates 中是否含有至少一个图片 inline_data part。
+func nativeGeminiResponseHasImage(candidates []dto.GeminiChatCandidate) bool {
+	for i := range candidates {
+		for j := range candidates[i].Content.Parts {
+			p := &candidates[i].Content.Parts[j]
+			if p.InlineData != nil && strings.HasPrefix(p.InlineData.MimeType, "image/") {
+				return true
+			}
+		}
+	}
+	return false
 }
