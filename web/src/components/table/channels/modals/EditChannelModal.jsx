@@ -207,6 +207,8 @@ const EditChannelModal = (props) => {
     no_output_no_billing: false,
     // 渠道级别「生图空返视为错误」开关
     image_empty_response_as_error: false,
+    // 渠道级别「图片直接返回 URL」开关
+    image_url_passthrough: false,
   };
   const [batch, setBatch] = useState(false);
   const [multiToSingle, setMultiToSingle] = useState(false);
@@ -818,6 +820,8 @@ const EditChannelModal = (props) => {
             parsedSettings.no_output_no_billing || false;
           data.image_empty_response_as_error =
             parsedSettings.image_empty_response_as_error || false;
+          data.image_url_passthrough =
+            parsedSettings.image_url_passthrough || false;
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
@@ -828,6 +832,7 @@ const EditChannelModal = (props) => {
           data.system_prompt_override = false;
           data.no_output_no_billing = false;
           data.image_empty_response_as_error = false;
+          data.image_url_passthrough = false;
         }
       } else {
         data.force_format = false;
@@ -838,6 +843,7 @@ const EditChannelModal = (props) => {
         data.system_prompt_override = false;
         data.no_output_no_billing = false;
         data.image_empty_response_as_error = false;
+        data.image_url_passthrough = false;
       }
 
       if (data.settings) {
@@ -1643,6 +1649,7 @@ const EditChannelModal = (props) => {
       system_prompt_override: localInputs.system_prompt_override || false,
       no_output_no_billing: localInputs.no_output_no_billing === true,
       image_empty_response_as_error: localInputs.image_empty_response_as_error === true,
+      image_url_passthrough: localInputs.image_url_passthrough === true,
     };
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
@@ -1702,6 +1709,7 @@ const EditChannelModal = (props) => {
     delete localInputs.system_prompt_override;
     delete localInputs.no_output_no_billing;
     delete localInputs.image_empty_response_as_error;
+    delete localInputs.image_url_passthrough;
     delete localInputs.is_enterprise_account;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
@@ -3824,6 +3832,21 @@ const EditChannelModal = (props) => {
                       }
                       extraText={t(
                         '开启后，图片生成返回空时视为错误（返回非 200），记录错误日志并不扣费，提示内容政策拦截',
+                      )}
+                    />
+                    <Form.Switch
+                      field='image_url_passthrough'
+                      label={t('图片直接返回 URL')}
+                      checkedText={t('开')}
+                      uncheckedText={t('关')}
+                      onChange={(value) =>
+                        handleChannelSettingsChange(
+                          'image_url_passthrough',
+                          value,
+                        )
+                      }
+                      extraText={t(
+                        '开启后，图片生成结果以 URL 形式直接返回，不转 base64（仅对 GRSAI 渠道生效，需上游支持返回链接）',
                       )}
                     />
                   </Card>

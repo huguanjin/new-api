@@ -234,7 +234,9 @@ export default function ClothingReplaceTool({
 
   const handleDownload = useCallback((imageData, filename) => {
     const link = document.createElement('a');
-    link.href = `data:${imageData.mimeType};base64,${imageData.base64}`;
+    link.href = imageData.base64
+      ? `data:${imageData.mimeType};base64,${imageData.base64}`
+      : (imageData.url || '');
     link.download = filename || 'clothing-replaced.png';
     document.body.appendChild(link);
     link.click();
@@ -568,7 +570,9 @@ export default function ClothingReplaceTool({
                     {result.images.map((img, idx) => (
                       <div key={idx}>
                         <img
-                          src={`data:${img.mimeType};base64,${img.base64}`}
+                          src={img.base64
+                            ? `data:${img.mimeType};base64,${img.base64}`
+                            : (img.url || '')}
                           alt={`Result ${idx + 1}`}
                           style={{
                             maxWidth: '100%',
@@ -579,7 +583,9 @@ export default function ClothingReplaceTool({
                           }}
                           onClick={() =>
                             openPreview(
-                              `data:${img.mimeType};base64,${img.base64}`
+                              img.base64
+                                ? `data:${img.mimeType};base64,${img.base64}`
+                                : (img.url || '')
                             )
                           }
                         />

@@ -287,9 +287,10 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		))
 	}
 
-	// Download each result image and return as b64_json (frontend requires base64)
+	// Download each result image and return as b64_json, or pass URL directly if channel setting is enabled.
 	type imageItem struct {
-		B64Json string `json:"b64_json"`
+		B64Json string `json:"b64_json,omitempty"`
+		URL     string `json:"url,omitempty"`
 	}
 	type imageResponse struct {
 		Created int64       `json:"created"`
@@ -297,18 +298,30 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		TaskID  string      `json:"task_id,omitempty"`
 	}
 	items := make([]imageItem, 0, len(last.Results))
+	urlPassthrough := info.ChannelSetting.ImageUrlPassthrough
 	for _, r := range last.Results {
 		if r.URL == "" {
 			continue
 		}
-		_, b64, err := service.GetImageFromUrl(r.URL)
-		if err != nil {
-			common.LogError(c.Request.Context(), fmt.Sprintf("image generation: failed to download result image from %s: %v", r.URL, err))
-			continue
+		if urlPassthrough {
+			items = append(items, imageItem{URL: r.URL})
+		} else {
+			_, b64, err := service.GetImageFromUrl(r.URL)
+			if err != nil {
+				common.LogError(c.Request.Context(), fmt.Sprintf("image generation: failed to download result image from %s: %v", r.URL, err))
+				continue
+			}
+			items = append(items, imageItem{B64Json: b64})
 		}
-		items = append(items, imageItem{B64Json: b64})
 	}
 	if len(items) == 0 {
+		if urlPassthrough {
+			return nil, types.NewOpenAIError(
+				fmt.Errorf("image generation: no result URLs returned"),
+				types.ErrorCodeDoRequestFailed,
+				http.StatusInternalServerError,
+			)
+		}
 		return nil, types.NewOpenAIError(
 			fmt.Errorf("image generation: failed to download any result images"),
 			types.ErrorCodeDoRequestFailed,

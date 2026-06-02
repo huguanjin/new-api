@@ -296,7 +296,9 @@ export default function Painting() {
   // Download image
   const handleDownload = useCallback((imageData, filename) => {
     const link = document.createElement('a');
-    link.href = `data:${imageData.mimeType};base64,${imageData.base64}`;
+    link.href = imageData.base64
+      ? `data:${imageData.mimeType};base64,${imageData.base64}`
+      : (imageData.url || '');
     link.download = filename || 'painting.png';
     document.body.appendChild(link);
     link.click();
@@ -599,14 +601,18 @@ export default function Painting() {
                       {result.images.map((img, idx) => (
                         <div key={idx} style={{ position: 'relative' }}>
                           <img
-                            src={`data:${img.mimeType};base64,${img.base64}`}
+                            src={img.base64
+                              ? `data:${img.mimeType};base64,${img.base64}`
+                              : (img.url || '')}
                             alt={`Generated ${idx + 1}`}
                             style={{
                               maxWidth: '100%', maxHeight: 500, borderRadius: 8,
                               cursor: 'pointer', display: 'block',
                             }}
                             onClick={() => {
-                              setPreviewSrc(`data:${img.mimeType};base64,${img.base64}`);
+                              setPreviewSrc(img.base64
+                                ? `data:${img.mimeType};base64,${img.base64}`
+                                : (img.url || ''));
                               setPreviewVisible(true);
                             }}
                           />

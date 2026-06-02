@@ -37,10 +37,13 @@ export function usePaintingEdit() {
       }
 
       const data = await response.json();
-      const images = (data.data || []).map((item) => ({
-        mimeType: 'image/png',
-        base64: item.b64_json,
-      }));
+      const images = (data.data || [])
+        .map((item) => ({
+          mimeType: 'image/png',
+          base64: item.b64_json || null,
+          url: item.url || null,
+        }))
+        .filter((img) => img.base64 || img.url);
       const parsedResult = { texts: [], images };
       setResult(parsedResult);
       return parsedResult;

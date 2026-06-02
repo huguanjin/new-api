@@ -11,6 +11,8 @@ type ChannelSettings struct {
 	NoOutputNoBilling bool `json:"no_output_no_billing,omitempty"`
 	// 渠道级别「生图空返视为错误」：开启后图片生成返回空数组时视为错误（非 200），记录错误日志，不扣费
 	ImageEmptyResponseAsError bool `json:"image_empty_response_as_error,omitempty"`
+	// 渠道级别「图片直接返回 URL」：开启后图片生成结果以 URL 形式直接返回，不转 base64（需上游支持返回链接）
+	ImageUrlPassthrough bool `json:"image_url_passthrough,omitempty"`
 }
 
 type VertexKeyType string
