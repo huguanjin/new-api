@@ -83,7 +83,7 @@ const EditTokenModal = (props) => {
     model_limits_enabled: false,
     model_limits: [],
     allow_ips: '',
-    group: '',
+    group: [],
     cross_group_retry: false,
     tokenCount: 1,
   });
@@ -403,9 +403,6 @@ const EditTokenModal = (props) => {
                         onChange={(val) => {
                           if (Array.isArray(val)) {
                             setPriorityGroups(val);
-                            if (formApiRef.current) {
-                              formApiRef.current.setValue('group', val.join(','));
-                            }
                           } else {
                             setPriorityGroups(val ? [val] : []);
                           }
@@ -474,7 +471,7 @@ const EditTokenModal = (props) => {
                                       const arr = [...priorityGroups];
                                       [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
                                       setPriorityGroups(arr);
-                                      formApiRef.current?.setValue('group', arr.join(','));
+                                      formApiRef.current?.setValue('group', arr);
                                     }}
                                   />
                                   <Button
@@ -486,7 +483,7 @@ const EditTokenModal = (props) => {
                                       const arr = [...priorityGroups];
                                       [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
                                       setPriorityGroups(arr);
-                                      formApiRef.current?.setValue('group', arr.join(','));
+                                      formApiRef.current?.setValue('group', arr);
                                     }}
                                   />
                                   <Button
@@ -497,7 +494,7 @@ const EditTokenModal = (props) => {
                                     onClick={() => {
                                       const arr = priorityGroups.filter((_, i) => i !== idx);
                                       setPriorityGroups(arr);
-                                      formApiRef.current?.setValue('group', arr.join(','));
+                                      formApiRef.current?.setValue('group', arr);
                                     }}
                                   />
                                 </Space>
