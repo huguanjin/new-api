@@ -284,6 +284,7 @@ func migrateDB() error {
 		&UserOAuthBinding{},
 		&Withdrawal{},
 		&PaintingImage{},
+		&GeneratedImage{},
 		&RedBookProject{},
 		&RedBookImage{},
 		&ExportTask{},

@@ -394,6 +394,13 @@ func SetApiRouter(router *gin.Engine) {
 			paintingRoute.DELETE("/images/:id", controller.DeletePaintingImage)
 		}
 
+		generatedImageRoute := apiRouter.Group("/generated-images")
+		generatedImageRoute.Use(middleware.UserAuth())
+		{
+			generatedImageRoute.GET("/", controller.GetGeneratedImages)
+			generatedImageRoute.GET("/:id/file", controller.GetGeneratedImageFile)
+		}
+
 		redBookRoute := apiRouter.Group("/redbook")
 		redBookRoute.Use(middleware.UserAuth())
 		{

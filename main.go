@@ -152,6 +152,10 @@ func main() {
 	// Start painting image cleanup task (48h TTL)
 	controller.StartPaintingCleanupTask()
 
+	// Start generated image storage and cleanup task (24h TTL)
+	service.InitGeneratedImageStorageDir()
+	service.StartGeneratedImageCleanupTask()
+
 	// Start redbook cleanup task (48h TTL)
 	controller.StartRedBookCleanupTask()
 

@@ -590,6 +590,32 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 		}
 	}
 
+	// Async save generated images for image generation requests
+	if info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits {
+		var imageResp dto.ImageResponse
+		if jsonErr := common.Unmarshal(responseBody, &imageResp); jsonErr == nil && len(imageResp.Data) > 0 {
+			requestId := c.GetString(common.RequestIdKey)
+			userId := info.UserId
+			modelName := info.OriginModelName
+			prompt := ""
+			if req, ok := info.Request.(*dto.ImageRequest); ok {
+				prompt = req.Prompt
+			}
+			imageDataCopy := make([]dto.ImageData, len(imageResp.Data))
+			copy(imageDataCopy, imageResp.Data)
+			gopool.Go(func() {
+				for i, img := range imageDataCopy {
+					if img.B64Json == "" {
+						continue
+					}
+					if err := service.SaveGeneratedImage(userId, requestId, modelName, prompt, img.B64Json, "image/png", i); err != nil {
+						common.SysError("failed to save generated image: " + err.Error())
+					}
+				}
+			})
+		}
+	}
+
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 

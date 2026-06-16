@@ -25,6 +25,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/reasoning"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -1650,6 +1651,29 @@ func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 			return nil, types.NewOpenAIError(errors.New(msg), types.ErrorCodePromptBlocked, statusCode, types.ErrOptionWithSkipRetry())
 		}
 		return nil, types.NewOpenAIError(errors.New("all images were filtered by safety filters"), types.ErrorCodePromptBlocked, http.StatusBadRequest)
+	}
+
+	// Async save generated images to disk for 24h download
+	{
+		requestId := c.GetString(common.RequestIdKey)
+		userId := info.UserId
+		modelName := info.OriginModelName
+		prompt := ""
+		if req, ok := info.Request.(*dto.ImageRequest); ok {
+			prompt = req.Prompt
+		}
+		imageDataCopy := make([]dto.ImageData, len(openAIResponse.Data))
+		copy(imageDataCopy, openAIResponse.Data)
+		gopool.Go(func() {
+			for i, img := range imageDataCopy {
+				if img.B64Json == "" {
+					continue
+				}
+				if err := service.SaveGeneratedImage(userId, requestId, modelName, prompt, img.B64Json, "image/png", i); err != nil {
+					common.SysError("failed to save generated image: " + err.Error())
+				}
+			}
+		})
 	}
 
 	jsonResponse, jsonErr := json.Marshal(openAIResponse)
