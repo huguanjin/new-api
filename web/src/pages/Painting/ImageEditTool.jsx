@@ -23,22 +23,7 @@ import { usePaintingEdit } from '../../hooks/painting/usePaintingEdit';
 
 const { Text } = Typography;
 
-const GPT_IMAGE_SIZES_STANDARD = [
-  { value: '1024x1024', label: '1:1 (1024×1024 · 1K)' },
-  { value: '1280x720',  label: '16:9 (1280×720 · 1K)' },
-  { value: '720x1280',  label: '9:16 (720×1280 · 1K)' },
-  { value: '1152x864',  label: '4:3 (1152×864 · 1K)' },
-  { value: '864x1152',  label: '3:4 (864×1152 · 1K)' },
-  { value: '1248x832',  label: '3:2 (1248×832 · 1K)' },
-  { value: '832x1248',  label: '2:3 (832×1248 · 1K)' },
-  { value: '1120x896',  label: '5:4 (1120×896 · 1K)' },
-  { value: '896x1120',  label: '4:5 (896×1120 · 1K)' },
-  { value: '1456x624',  label: '21:9 (1456×624 · 1K)' },
-  { value: 'auto',      label: 'auto' },
-];
-
-// VIP 模型平铺列表，每项标注比例、像素尺寸和分辨率档位
-const GPT_IMAGE_SIZES_VIP = [
+const GPT_IMAGE_SIZES = [
   { value: 'auto',      label: 'auto' },
   { value: '1024x1024', label: '1:1 (1024×1024 · 1K)' },
   { value: '2048x2048', label: '1:1 (2048×2048 · 2K)' },
@@ -225,23 +210,21 @@ export default function ImageEditTool({
                 value={editSize}
                 onChange={setEditSize}
                 style={{ width: '100%' }}
-                optionList={editModel === 'gpt-image-2-vip' ? GPT_IMAGE_SIZES_VIP : GPT_IMAGE_SIZES_STANDARD}
+                optionList={GPT_IMAGE_SIZES}
               />
             </div>
-            {/* Quality (vip only) */}
-            {editModel === 'gpt-image-2-vip' && (
-              <div style={{ flex: '1 1 120px' }}>
-                <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>
-                  {t('图片质量')}
-                </Text>
-                <Select
-                  value={editQuality}
-                  onChange={setEditQuality}
-                  style={{ width: '100%' }}
-                  optionList={GPT_IMAGE_QUALITY}
-                />
-              </div>
-            )}
+            {/* Quality */}
+            <div style={{ flex: '1 1 120px' }}>
+              <Text strong size='small' style={{ display: 'block', marginBottom: 4 }}>
+                {t('图片质量')}
+              </Text>
+              <Select
+                value={editQuality}
+                onChange={setEditQuality}
+                style={{ width: '100%' }}
+                optionList={GPT_IMAGE_QUALITY}
+              />
+            </div>
           </div>
         </Card>
 
