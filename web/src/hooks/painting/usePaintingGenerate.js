@@ -15,13 +15,16 @@ export function usePaintingGenerate() {
       try {
         // GPT Image path
         if (imageProvider === 'openai_image') {
+          const isGptImage = model.startsWith('gpt-image');
           const body = {
             prompt,
             model,
             n: 1,
             size: imageSize || '1024x1024',
-            response_format: 'b64_json',
           };
+          if (!isGptImage) {
+            body.response_format = 'b64_json';
+          }
           if (quality) body.quality = quality;
           // Pass reference images as data URIs via the urls[] extension field.
           // GRSAI upstream accepts both HTTP URLs and base64 data URIs in urls[].

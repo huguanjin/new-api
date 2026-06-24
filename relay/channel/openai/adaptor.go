@@ -537,6 +537,9 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		return &requestBody, nil
 
 	default:
+		if strings.HasPrefix(request.Model, "gpt-image") {
+			request.ResponseFormat = ""
+		}
 		return request, nil
 	}
 }
