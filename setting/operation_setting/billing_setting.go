@@ -13,6 +13,9 @@ type BillingSetting struct {
 	// 任务按次计费模型列表（逗号分隔，支持 * 通配符，例如 "sora-*,veo-*"）
 	// 列表中的模型提交视频任务时跳过 OtherRatios（时长、分辨率）乘算，仅按模型固定价格计费
 	TaskPerCallBillingModels string `json:"task_per_call_billing_models"`
+	// 视频模型在模型广场显示为按秒计费的模型列表（逗号分隔，支持 * 通配符，例如 "sora-*,veo-*,kling-*"）
+	// 列表中的模型在模型广场中将显示为按秒计费，即使它们在数据库中配置为按次计费
+	VideoDisplayBySecondModels string `json:"video_display_by_second_models"`
 	// 图片生成政策拦截时返回给下游的自定义提示消息；留空则禁用此功能（保持原有行为）
 	ImagePolicyBlockMessage string `json:"image_policy_block_message"`
 	// 图片生成政策拦截时返回给下游的 HTTP 状态码；0 表示使用默认值 400
@@ -22,6 +25,7 @@ type BillingSetting struct {
 var billingSetting = BillingSetting{
 	NoOutputNoBillingModels:    "",
 	TaskPerCallBillingModels:   "",
+	VideoDisplayBySecondModels: "",
 	ImagePolicyBlockMessage:    "",
 	ImagePolicyBlockStatusCode: 0,
 }
@@ -35,6 +39,10 @@ var (
 	parsedTaskPerCallModels []string
 	parsedTaskPerCallMu     sync.RWMutex
 	lastTaskPerCallValue    string
+
+	parsedVideoDisplayBySecondModels []string
+	parsedVideoDisplayMu             sync.RWMutex
+	lastVideoDisplayValue            string
 )
 
 func init() {
@@ -223,4 +231,54 @@ func matchPattern(name, pattern string) bool {
 	}
 
 	return true
+}
+
+// IsVideoDisplayBySecondModel 检查指定模型是否在「视频模型广场按秒计费显示」列表中。
+// 注意：此配置仅影响模型广场的显示，不影响实际计费逻辑。
+func IsVideoDisplayBySecondModel(modelName string) bool {
+	raw := billingSetting.VideoDisplayBySecondModels
+	if raw == "" {
+		return false
+	}
+
+	patterns := getParsedVideoDisplayBySecondModels(raw)
+	modelLower := strings.ToLower(modelName)
+
+	for _, pattern := range patterns {
+		if matchPattern(modelLower, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// getParsedVideoDisplayBySecondModels 懒解析并缓存视频按秒计费显示模型列表
+func getParsedVideoDisplayBySecondModels(raw string) []string {
+	parsedVideoDisplayMu.RLock()
+	if raw == lastVideoDisplayValue {
+		result := parsedVideoDisplayBySecondModels
+		parsedVideoDisplayMu.RUnlock()
+		return result
+	}
+	parsedVideoDisplayMu.RUnlock()
+
+	parsedVideoDisplayMu.Lock()
+	defer parsedVideoDisplayMu.Unlock()
+
+	// double check
+	if raw == lastVideoDisplayValue {
+		return parsedVideoDisplayBySecondModels
+	}
+
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, strings.ToLower(p))
+		}
+	}
+	parsedVideoDisplayBySecondModels = result
+	lastVideoDisplayValue = raw
+	return result
 }

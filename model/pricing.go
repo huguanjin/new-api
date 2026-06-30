@@ -304,11 +304,17 @@ func updatePricing() {
 		if resRatios := ratio_setting.GetModelResolutionRatios(model); len(resRatios) > 0 {
 			pricing.ResolutionPricing = resRatios
 		}
-		// 视频按秒计费模型标记：QuotaType=1 且支持 openai-video 端点且不在按次计费列表中
-		if pricing.QuotaType == 1 && hasVideoEndpoint(pricing.SupportedEndpointTypes) &&
-			!operation_setting.IsTaskPerCallBillingModel(model) &&
-			!common.StringsContains(constant.TaskPricePatches, model) {
-			pricing.BillingUnit = "second"
+		// 视频按秒计费模型标记：
+		// 1. 优先检查配置的显式按秒计费显示列表
+		// 2. 若未配置，则 QuotaType=1 且支持 openai-video 端点且不在按次计费列表中时标记为按秒
+		if hasVideoEndpoint(pricing.SupportedEndpointTypes) {
+			if operation_setting.IsVideoDisplayBySecondModel(model) {
+				pricing.BillingUnit = "second"
+			} else if pricing.QuotaType == 1 &&
+				!operation_setting.IsTaskPerCallBillingModel(model) &&
+				!common.StringsContains(constant.TaskPricePatches, model) {
+				pricing.BillingUnit = "second"
+			}
 		}
 		pricingMap = append(pricingMap, pricing)
 	}

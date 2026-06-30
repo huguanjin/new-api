@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 const defaultInputs = {
   'billing_setting.no_output_no_billing_models': '',
   'billing_setting.task_per_call_billing_models': '',
+  'billing_setting.video_display_by_second_models': '',
   'billing_setting.image_policy_block_message': '',
   'billing_setting.image_policy_block_status_code': '',
 };
@@ -136,6 +137,28 @@ export default function SettingsBilling(props) {
               type='info'
               description={t(
                 '配置后，列表中的视频模型提交任务时将按固定价格计费，不再乘以时长、分辨率等参数倍率。未在列表中的模型仍按默认的参数倍率计费。支持通配符：sora-* 匹配以 sora- 开头的模型。也可通过环境变量 TASK_PRICE_PATCH 配置（两处取并集）。',
+              )}
+              style={{ marginBottom: 16 }}
+            />
+            <Row gutter={16}>
+              <Col span={24}>
+                <Form.TextArea
+                  field={'billing_setting.video_display_by_second_models'}
+                  label={t('视频模型广场按秒计费显示')}
+                  placeholder={t(
+                    '输入模型名称，多个用英文逗号分隔，支持 * 通配符，例如：sora-*,veo-*,kling-*',
+                  )}
+                  onChange={handleFieldChange(
+                    'billing_setting.video_display_by_second_models',
+                  )}
+                  autosize={{ minRows: 2, maxRows: 6 }}
+                />
+              </Col>
+            </Row>
+            <Banner
+              type='info'
+              description={t(
+                '配置后，列表中的视频模型在模型广场中将显示为「按秒计费」，便于用户识别实际计费方式。此配置仅影响模型广场的显示标签，不影响实际计费逻辑。适用于设置了按次计费但环境变量中未配置的视频模型。支持通配符：sora-* 匹配以 sora- 开头的模型。',
               )}
               style={{ marginBottom: 16 }}
             />
