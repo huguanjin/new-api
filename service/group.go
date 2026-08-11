@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -44,16 +45,80 @@ func GroupInUserUsableGroups(userGroup, groupName string) bool {
 	return ok
 }
 
+func IsUserSelectableGroup(userGroup, groupName string) bool {
+	if groupName == "" || groupName == "auto" {
+		return false
+	}
+	return GroupInUserUsableGroups(userGroup, groupName) && ratio_setting.ContainsGroupRatio(groupName)
+}
+
 // GetUserAutoGroup 根据用户分组获取自动分组设置
 func GetUserAutoGroup(userGroup string) []string {
-	groups := GetUserUsableGroups(userGroup)
 	autoGroups := make([]string, 0)
+	seen := make(map[string]struct{})
 	for _, group := range setting.GetAutoGroups() {
-		if _, ok := groups[group]; ok {
-			autoGroups = append(autoGroups, group)
+		if !IsUserSelectableGroup(userGroup, group) {
+			continue
 		}
+		if _, ok := seen[group]; ok {
+			continue
+		}
+		seen[group] = struct{}{}
+		autoGroups = append(autoGroups, group)
 	}
 	return autoGroups
+}
+
+// FilterUserTokenAutoGroups applies current permissions before the current
+// per-token limit. It intentionally does not fall back to the global Auto list.
+func FilterUserTokenAutoGroups(userGroup string, groups []string) []string {
+	maxCount := setting.GetMaxTokenAutoGroups()
+	filtered := make([]string, 0, min(len(groups), maxCount))
+	seen := make(map[string]struct{})
+	for _, group := range groups {
+		if !IsUserSelectableGroup(userGroup, group) {
+			continue
+		}
+		if _, ok := seen[group]; ok {
+			continue
+		}
+		seen[group] = struct{}{}
+		filtered = append(filtered, group)
+		if len(filtered) == maxCount {
+			break
+		}
+	}
+	return filtered
+}
+
+// GetRequestAutoGroups resolves the ordered Auto groups for the current token.
+// The absence of the context value means that the token inherits the complete
+// global Auto list; a present (even empty) value is an explicit token snapshot.
+func GetRequestAutoGroups(c *gin.Context, userGroup string) []string {
+	value, ok := common.GetContextKey(c, constant.ContextKeyTokenAutoGroups)
+	if !ok {
+		return GetUserAutoGroup(userGroup)
+	}
+	groups, ok := value.([]string)
+	if !ok {
+		return []string{}
+	}
+	return FilterUserTokenAutoGroups(userGroup, groups)
+}
+
+// GetGroupsEnabledModels 按 groups 顺序获取各分组启用的模型并去重
+func GetGroupsEnabledModels(groups []string) []string {
+	seen := make(map[string]struct{})
+	models := make([]string, 0)
+	for _, group := range groups {
+		for _, modelName := range model.GetGroupEnabledModels(group) {
+			if _, ok := seen[modelName]; !ok {
+				seen[modelName] = struct{}{}
+				models = append(models, modelName)
+			}
+		}
+	}
+	return models
 }
 
 // GetUserGroupRatio 获取用户使用某个分组的倍率
@@ -65,35 +130,4 @@ func GetUserGroupRatio(userGroup, group string) float64 {
 		return ratio
 	}
 	return ratio_setting.GetGroupRatio(group)
-}
-
-// IsMultiGroupToken 判断令牌分组是否为自定义多分组（逗号分隔）
-func IsMultiGroupToken(group string) bool {
-	return group != "" && group != "auto" && strings.Contains(group, ",")
-}
-
-// ParseTokenGroups 解析令牌的自定义多分组字符串，返回去重后的有序分组列表
-func ParseTokenGroups(group string) []string {
-	parts := strings.Split(group, ",")
-	seen := make(map[string]bool)
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" && !seen[p] {
-			seen[p] = true
-			result = append(result, p)
-		}
-	}
-	return result
-}
-
-// GetEffectiveAutoGroups 获取有效的自动分组列表
-// 优先使用令牌的自定义多分组，如果没有则使用全局自动分组
-func GetEffectiveAutoGroups(c *gin.Context, userGroup string) []string {
-	if customGroups, exists := common.GetContextKey(c, constant.ContextKeyCustomAutoGroups); exists {
-		if groups, ok := customGroups.([]string); ok && len(groups) > 0 {
-			return groups
-		}
-	}
-	return GetUserAutoGroup(userGroup)
 }

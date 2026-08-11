@@ -37,7 +37,7 @@ func (w *WalletFunding) PreConsume(amount int) error {
 	if amount <= 0 {
 		return nil
 	}
-	if err := model.DecreaseUserQuota(w.userId, amount); err != nil {
+	if err := model.DecreaseUserQuota(w.userId, amount, false); err != nil {
 		return err
 	}
 	w.consumed = amount
@@ -49,7 +49,7 @@ func (w *WalletFunding) Settle(delta int) error {
 		return nil
 	}
 	if delta > 0 {
-		return model.DecreaseUserQuota(w.userId, delta)
+		return model.DecreaseUserQuota(w.userId, delta, false)
 	}
 	return model.IncreaseUserQuota(w.userId, -delta, false)
 }
@@ -71,7 +71,6 @@ type SubscriptionFunding struct {
 	requestId      string
 	userId         int
 	modelName      string
-	usingGroup     string
 	amount         int64 // 预扣的订阅额度（subConsume）
 	subscriptionId int
 	preConsumed    int64
@@ -86,7 +85,7 @@ func (s *SubscriptionFunding) Source() string { return BillingSourceSubscription
 
 func (s *SubscriptionFunding) PreConsume(_ int) error {
 	// amount 参数被忽略，使用内部 s.amount（已在构造时根据 preConsumedQuota 计算）
-	res, err := model.PreConsumeUserSubscription(s.requestId, s.userId, s.modelName, 0, s.amount, s.usingGroup)
+	res, err := model.PreConsumeUserSubscription(s.requestId, s.userId, s.modelName, 0, s.amount)
 	if err != nil {
 		return err
 	}

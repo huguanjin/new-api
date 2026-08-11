@@ -1,79 +1,26 @@
-﻿package gemini
+package gemini
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/reasoning"
-	system_setting "github.com/QuantumNous/new-api/setting/system_setting"
-	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
 
 type Adaptor struct {
-}
-
-// convertBase64InlineDataToURL iterates over all parts in a GeminiChatRequest and
-// uploads any InlineData image whose decoded size exceeds the configured threshold to the
-// local temp-image server.  The InlineData part is then replaced with a FileData part
-// pointing to the public URL so that the upstream Gemini provider can fetch it directly,
-// avoiding the upstream nginx 413 limit.
-func convertBase64InlineDataToURL(request *dto.GeminiChatRequest, info *relaycommon.RelayInfo) error {
-	if !info.ChannelOtherSettings.GeminiBase64ToUrlEnabled {
-		return nil
-	}
-
-	// Determine threshold in bytes (decoded image size). Default: 512 KiB.
-	thresholdKB := info.ChannelOtherSettings.GeminiBase64ToUrlThresholdKB
-	if thresholdKB <= 0 {
-		thresholdKB = 512
-	}
-	thresholdBytes := thresholdKB * 1024
-
-	baseURL := strings.TrimRight(system_setting.ServerAddress, "/")
-
-	for i := range request.Contents {
-		for j := range request.Contents[i].Parts {
-			part := &request.Contents[i].Parts[j]
-			if part.InlineData == nil {
-				continue
-			}
-			// base64 string length * 3/4 ≈ decoded byte count (accurate enough for threshold check)
-			estimatedBytes := len(part.InlineData.Data) * 3 / 4
-			if estimatedBytes < thresholdBytes {
-				continue
-			}
-
-			filename, err := service.SaveTempImage(part.InlineData.Data, part.InlineData.MimeType)
-			if err != nil {
-				return fmt.Errorf("failed to save temp image for base64→URL conversion: %w", err)
-			}
-
-			fileURI := baseURL + "/temp-images/" + filename
-			mimeType := part.InlineData.MimeType
-
-			part.InlineData = nil
-			part.FileData = &dto.GeminiFileData{
-				MimeType: mimeType,
-				FileUri:  fileURI,
-			}
-		}
-	}
-	return nil
 }
 
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
@@ -84,8 +31,7 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 					request.Contents[0].Role = "user"
 				}
 			}
-			for j := range content.Parts {
-				part := &request.Contents[i].Parts[j]
+			for _, part := range content.Parts {
 				if part.FileData != nil {
 					if part.FileData.MimeType == "" && strings.Contains(part.FileData.FileUri, "www.youtube.com") {
 						part.FileData.MimeType = "video/webm"
@@ -94,17 +40,19 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 			}
 		}
 	}
-
 	return request, nil
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, req *dto.ClaudeRequest) (any, error) {
-	adaptor := openai.Adaptor{}
-	oaiReq, err := adaptor.ConvertClaudeRequest(c, info, req)
+	result, err := relayconvert.ConvertRequest(c, info, types.RelayFormatGemini, req)
 	if err != nil {
 		return nil, err
 	}
-	return a.ConvertOpenAIRequest(c, info, oaiReq.(*dto.GeneralOpenAIRequest))
+	geminiRequest, ok := result.Value.(*dto.GeminiChatRequest)
+	if !ok {
+		return nil, fmt.Errorf("expected Gemini generateContent request, got %T", result.Value)
+	}
+	return geminiRequest, nil
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
@@ -112,59 +60,9 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 	return nil, errors.New("not implemented")
 }
 
-// extractImageForEditing extracts the reference image from the request for Imagen editing.
-// It tries multipart file upload first, then falls back to request.Image (base64 data URI or URL).
-// Returns the MIME type and pure base64-encoded data (without data URI prefix).
-func extractImageForEditing(c *gin.Context, request dto.ImageRequest) (mimeType string, base64Data string, err error) {
-	// Case 1: multipart/form-data file upload (standard OpenAI image edit API format)
-	// Ensure the multipart form has been parsed; fall back to parsing it here if not yet done.
-	if c.Request.MultipartForm == nil {
-		_, _ = c.MultipartForm()
-	}
-	if mf := c.Request.MultipartForm; mf != nil && mf.File != nil {
-		for _, key := range []string{"image", "image[]"} {
-			if fhs, ok := mf.File[key]; ok && len(fhs) > 0 {
-				f, openErr := fhs[0].Open()
-				if openErr != nil {
-					return "", "", openErr
-				}
-				data, readErr := io.ReadAll(f)
-				_ = f.Close()
-				if readErr != nil {
-					return "", "", readErr
-				}
-				if len(data) > 0 {
-					detectedMime := http.DetectContentType(data)
-					return detectedMime, base64.StdEncoding.EncodeToString(data), nil
-				}
-			}
-		}
-	}
-
-	// Case 2: JSON body with request.Image as a base64 data URI or URL string
-	if len(request.Image) > 0 {
-		var imgStr string
-		if unmarshalErr := common.Unmarshal(request.Image, &imgStr); unmarshalErr == nil && imgStr != "" {
-			if strings.HasPrefix(imgStr, "data:") {
-				mt, b64, decErr := service.DecodeBase64FileData(imgStr)
-				if decErr == nil {
-					return mt, b64, nil
-				}
-			} else if strings.HasPrefix(imgStr, "http://") || strings.HasPrefix(imgStr, "https://") {
-				mt, b64, dlErr := service.GetImageFromUrl(imgStr)
-				if dlErr == nil {
-					return mt, b64, nil
-				}
-			}
-		}
-	}
-
-	return "", "", nil
-}
-
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	if !strings.HasPrefix(info.UpstreamModelName, "imagen") {
-		return nil, errors.New("not supported model for image generation")
+		return nil, errors.New("not supported model for image generation, only imagen models are supported")
 	}
 
 	// convert size to aspect ratio but allow user to specify aspect ratio
@@ -223,24 +121,6 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 			imageSize = "1K"
 		}
 		geminiRequest.Parameters.ImageSize = imageSize
-	}
-
-	// Handle image editing: extract reference image and attach to the instance.
-	// The Gemini Imagen API determines editing vs. generation based on whether
-	// the "image" field is present in the instance.
-	// See: https://cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/Shared.Types/VisionGenerativeModelInstance
-	if info.RelayMode == constant.RelayModeImagesEdits {
-		mimeType, base64Data, err := extractImageForEditing(c, request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract reference image for editing: %w", err)
-		}
-		if base64Data != "" {
-			geminiRequest.Instances[0].Image = &dto.GeminiImageInstanceImage{
-				BytesBase64Encoded: base64Data,
-				MimeType:           mimeType,
-			}
-			geminiRequest.Parameters.EditMode = "EDIT_MODE_DEFAULT"
-		}
 	}
 
 	return geminiRequest, nil
@@ -303,17 +183,11 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
-
-	geminiRequest, err := CovertOpenAI2Gemini(c, *request, info)
+	result, err := relayconvert.ConvertRequest(c, info, types.RelayFormatGemini, request)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := convertBase64InlineDataToURL(geminiRequest, info); err != nil {
-		return nil, err
-	}
-
-	return geminiRequest, nil
+	return result.Value, nil
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
@@ -365,8 +239,15 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	// TODO implement me
-	return nil, errors.New("not implemented")
+	result, err := relayconvert.ConvertRequest(c, info, types.RelayFormatGemini, &request)
+	if err != nil {
+		return nil, err
+	}
+	geminiRequest, ok := result.Value.(*dto.GeminiChatRequest)
+	if !ok {
+		return nil, fmt.Errorf("expected Gemini generateContent request, got %T", result.Value)
+	}
+	return geminiRequest, nil
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
@@ -374,6 +255,13 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 }
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == constant.RelayModeResponses {
+		if info.IsStream {
+			return GeminiResponsesStreamHandler(c, info, resp)
+		}
+		return GeminiResponsesHandler(c, info, resp)
+	}
+
 	if info.RelayMode == constant.RelayModeGemini {
 		if strings.Contains(info.RequestURLPath, ":embedContent") ||
 			strings.Contains(info.RequestURLPath, ":batchEmbedContents") {

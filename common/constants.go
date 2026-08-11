@@ -34,6 +34,24 @@ var DefaultCollapseSidebar = false // default value of collapse sidebar
 
 var SessionSecret = uuid.New().String()
 var CryptoSecret = uuid.New().String()
+var SessionCookieSecure = false
+var SessionCookieTrustedURLs []string
+
+const (
+	DefaultUserSessionActiveLimit           = 50
+	DefaultUserSessionIssuanceLimit         = 100
+	DefaultUserSessionIssuanceWindowSeconds = 24 * 60 * 60
+	DefaultUserSessionRevokedRetentionDays  = 7
+	DefaultUserSessionHourlyAlertThreshold  = 5000
+)
+
+var (
+	UserSessionActiveLimit           = DefaultUserSessionActiveLimit
+	UserSessionIssuanceLimit         = DefaultUserSessionIssuanceLimit
+	UserSessionIssuanceWindowSeconds = int64(DefaultUserSessionIssuanceWindowSeconds)
+	UserSessionRevokedRetentionDays  = DefaultUserSessionRevokedRetentionDays
+	UserSessionHourlyAlertThreshold  = DefaultUserSessionHourlyAlertThreshold
+)
 
 var OptionMap map[string]string
 var OptionMapRWMutex sync.RWMutex
@@ -74,14 +92,15 @@ var MemoryCacheEnabled bool
 
 var LogConsumeEnabled = true
 
-var RecordErrorIpLog = false
-
 var TLSInsecureSkipVerify bool
 var InsecureTLSConfig = &tls.Config{InsecureSkipVerify: true}
 
 var SMTPServer = ""
 var SMTPPort = 587
 var SMTPSSLEnabled = false
+var SMTPStartTLSEnabled = false
+var SMTPInsecureSkipVerify = false
+var SMTPForceAuthLogin = false
 var SMTPAccount = ""
 var SMTPFrom = ""
 var SMTPToken = ""
@@ -105,14 +124,6 @@ var TelegramBotName = ""
 var QuotaForNewUser = 0
 var QuotaForInviter = 0
 var QuotaForInvitee = 0
-var SubscriptionCommissionRate = 0.0 // 订阅返利比例，0 表示关闭，0.1 表示 10%
-var TopupCommissionRate = 0.0        // 充值返利比例，0 表示关闭，0.1 表示 10%
-var TopupCommissionMaxCount = 0      // 充值返利次数，0 表示不返利，正整数表示前N次充值可返利
-
-// 代理使用量月度分红配置
-var UsageCommissionRate = 0.0                  // 使用量分红比例，0 表示关闭，0.1 表示 10%
-var UsageCommissionMinAccountAgeDays = 30      // 下级账号最低存在天数（防批量注册套利）
-var UsageCommissionMaxPerInviteePerMonth = 0.0 // 每下级每月分红上限（元），0 表示不限
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false
@@ -125,6 +136,21 @@ var RetryTimes = 0
 
 var IsMasterNode bool
 
+const (
+	NodeNameSourceManual   = "manual"
+	NodeNameSourceHostname = "hostname"
+)
+
+// NodeName 节点名称，优先从 NODE_NAME 环境变量读取，未配置时回退主机名。
+// 用于审计日志和后台任务中标识节点身份；多实例部署时建议显式配置稳定 NODE_NAME。
+var NodeName = ""
+
+// NodeNameSource records how NodeName was chosen so future instance-management
+// reporting can distinguish operator-configured names from automatic fallback.
+var NodeNameSource = NodeNameSourceHostname
+
+var NodeNameManuallyConfigured bool
+
 var requestInterval int
 var RequestInterval time.Duration
 
@@ -135,6 +161,7 @@ var BatchUpdateInterval int
 
 var RelayTimeout int // unit is second
 
+var RelayIdleConnTimeout int // unit is second
 var RelayMaxIdleConns int
 var RelayMaxIdleConnsPerHost int
 
@@ -144,19 +171,19 @@ var GeminiSafetySetting string
 var CohereSafetySetting string
 
 const (
-	RequestIdKey = "X-Oneapi-Request-Id"
+	RequestIdKey         = "X-Oneapi-Request-Id"
+	UpstreamRequestIdKey = "X-Upstream-Request-Id"
 )
 
 const (
 	RoleGuestUser  = 0
 	RoleCommonUser = 1
-	RoleAgentUser  = 5
 	RoleAdminUser  = 10
 	RoleRootUser   = 100
 )
 
 func IsValidateRole(role int) bool {
-	return role == RoleGuestUser || role == RoleCommonUser || role == RoleAgentUser || role == RoleAdminUser || role == RoleRootUser
+	return role == RoleGuestUser || role == RoleCommonUser || role == RoleAdminUser || role == RoleRootUser
 }
 
 var (
@@ -188,6 +215,7 @@ var (
 	DownloadRateLimitDuration int64 = 60
 
 	// Per-user search rate limit (applies after authentication, keyed by user ID)
+	SearchRateLimitEnable         = true
 	SearchRateLimitNum            = 10
 	SearchRateLimitDuration int64 = 60
 )
@@ -222,11 +250,6 @@ const (
 const (
 	TopUpStatusPending = "pending"
 	TopUpStatusSuccess = "success"
+	TopUpStatusFailed  = "failed"
 	TopUpStatusExpired = "expired"
-)
-
-const (
-	WithdrawalStatusPending  = "pending"
-	WithdrawalStatusApproved = "approved"
-	WithdrawalStatusRejected = "rejected"
 )

@@ -2,6 +2,7 @@ package model
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 
@@ -26,12 +27,9 @@ type Model struct {
 	Description  string         `json:"description,omitempty" gorm:"type:text"`
 	Icon         string         `json:"icon,omitempty" gorm:"type:varchar(128)"`
 	Tags         string         `json:"tags,omitempty" gorm:"type:varchar(255)"`
-	VendorID      int            `json:"vendor_id,omitempty" gorm:"index"`
-	Endpoints     string         `json:"endpoints,omitempty" gorm:"type:text"`
-	VideoProvider   string         `json:"video_provider,omitempty" gorm:"size:64;index"`
-	ImageProvider   string         `json:"image_provider,omitempty" gorm:"size:64;index"`
-	RedBookProvider string         `json:"red_book_provider,omitempty" gorm:"size:64;index"`
-	Status        int            `json:"status" gorm:"default:1"`
+	VendorID     int            `json:"vendor_id,omitempty" gorm:"index"`
+	Endpoints    string         `json:"endpoints,omitempty" gorm:"type:text"`
+	Status       int            `json:"status" gorm:"default:1"`
 	SyncOfficial int            `json:"sync_official" gorm:"default:1"`
 	CreatedTime  int64          `json:"created_time" gorm:"bigint"`
 	UpdatedTime  int64          `json:"updated_time" gorm:"bigint"`
@@ -80,95 +78,12 @@ func (mi *Model) Update() error {
 	mi.UpdatedTime = common.GetTimestamp()
 	// 使用 Select 强制更新所有字段，包括零值
 	return DB.Model(&Model{}).Where("id = ?", mi.Id).
-		Select("model_name", "description", "icon", "tags", "vendor_id", "endpoints", "video_provider", "image_provider", "red_book_provider", "status", "sync_official", "name_rule", "updated_time").
+		Select("model_name", "description", "icon", "tags", "vendor_id", "endpoints", "status", "sync_official", "name_rule", "updated_time").
 		Updates(mi).Error
 }
 
 func (mi *Model) Delete() error {
 	return DB.Delete(mi).Error
-}
-
-func GetModelsByVideoProvider() (map[string][]string, error) {
-	var results []struct {
-		VideoProvider string
-		ModelName     string
-	}
-	err := DB.Model(&Model{}).
-		Select("video_provider, model_name").
-		Where("video_provider <> '' AND status = 1").
-		Find(&results).Error
-	if err != nil {
-		return nil, err
-	}
-	m := make(map[string][]string)
-	for _, r := range results {
-		m[r.VideoProvider] = append(m[r.VideoProvider], r.ModelName)
-	}
-	return m, nil
-}
-
-type PaintingModelInfo struct {
-	Name     string `json:"name"`
-	Provider string `json:"provider"`
-}
-
-func GetPaintingModels() ([]PaintingModelInfo, error) {
-	var results []struct {
-		ModelName     string
-		ImageProvider string
-	}
-	err := DB.Model(&Model{}).
-		Select("model_name, image_provider").
-		Where("image_provider <> '' AND status = 1").
-		Find(&results).Error
-	if err != nil {
-		return nil, err
-	}
-	infos := make([]PaintingModelInfo, 0, len(results))
-	for _, r := range results {
-		provider := r.ImageProvider
-		if provider == "painting" {
-			provider = "gemini" // backward compatibility
-		}
-		infos = append(infos, PaintingModelInfo{Name: r.ModelName, Provider: provider})
-	}
-	return infos, nil
-}
-
-func GetRedBookTextModels() ([]string, error) {
-	var results []struct {
-		ModelName string
-	}
-	err := DB.Model(&Model{}).
-		Select("model_name").
-		Where("red_book_provider = 'text' AND status = 1").
-		Find(&results).Error
-	if err != nil {
-		return nil, err
-	}
-	models := make([]string, 0, len(results))
-	for _, r := range results {
-		models = append(models, r.ModelName)
-	}
-	return models, nil
-}
-
-func GetRedBookImageModels() ([]string, error) {
-	var results []struct {
-		ModelName string
-	}
-	err := DB.Model(&Model{}).
-		Select("model_name").
-		Where("red_book_provider = 'image' AND status = 1").
-		Find(&results).Error
-	if err != nil {
-		return nil, err
-	}
-	models := make([]string, 0, len(results))
-	for _, r := range results {
-		models = append(models, r.ModelName)
-	}
-	return models, nil
 }
 
 func GetVendorModelCounts() (map[int64]int64, error) {
@@ -190,8 +105,7 @@ func GetVendorModelCounts() (map[int64]int64, error) {
 }
 
 func GetAllModels(offset int, limit int) ([]*Model, error) {
-	var models []*Model
-	err := DB.Order("id DESC").Offset(offset).Limit(limit).Find(&models).Error
+	models, _, err := SearchModels("", "", "", "", offset, limit)
 	return models, err
 }
 
@@ -221,7 +135,63 @@ func GetBoundChannelsByModelsMap(modelNames []string) (map[string][]BoundChannel
 	return result, nil
 }
 
-func SearchModels(keyword string, vendor string, hasIcon, hasDescription, hasVendor, hasTags string, offset int, limit int) ([]*Model, int64, error) {
+func normalizeLookupValues(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	return normalized
+}
+
+func GetPreferredModelOwnerChannelTypes(modelNames []string, groups []string) (map[string]int, error) {
+	result := make(map[string]int)
+	modelNames = normalizeLookupValues(modelNames)
+	if len(modelNames) == 0 {
+		return result, nil
+	}
+
+	type row struct {
+		Model       string
+		ChannelType int
+	}
+	var rows []row
+
+	query := DB.Table("abilities").
+		Select("abilities.model as model, channels.type as channel_type").
+		Joins("JOIN channels ON abilities.channel_id = channels.id").
+		Where("abilities.model IN ? AND abilities.enabled = ? AND channels.status = ?", modelNames, true, common.ChannelStatusEnabled).
+		Order("COALESCE(abilities.priority, 0) DESC").
+		Order("abilities.weight DESC").
+		Order("abilities.channel_id ASC")
+
+	groups = normalizeLookupValues(groups)
+	if len(groups) > 0 {
+		query = query.Where("abilities."+commonGroupCol+" IN ?", groups)
+	}
+
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	for _, r := range rows {
+		if _, ok := result[r.Model]; ok {
+			continue
+		}
+		result[r.Model] = r.ChannelType
+	}
+	return result, nil
+}
+
+func SearchModels(keyword string, vendor string, status string, syncOfficial string, offset int, limit int) ([]*Model, int64, error) {
 	var models []*Model
 	db := DB.Model(&Model{})
 	if keyword != "" {
@@ -235,25 +205,11 @@ func SearchModels(keyword string, vendor string, hasIcon, hasDescription, hasVen
 			db = db.Joins("JOIN vendors ON vendors.id = models.vendor_id").Where("vendors.name LIKE ?", "%"+vendor+"%")
 		}
 	}
-	if hasIcon == "1" {
-		db = db.Where("models.icon != ''")
-	} else if hasIcon == "0" {
-		db = db.Where("models.icon = ''")
+	if statusValue, ok := parseModelStatusFilter(status); ok {
+		db = db.Where("models.status = ?", statusValue)
 	}
-	if hasDescription == "1" {
-		db = db.Where("models.description != ''")
-	} else if hasDescription == "0" {
-		db = db.Where("models.description = ''")
-	}
-	if hasVendor == "1" {
-		db = db.Where("models.vendor_id > 0")
-	} else if hasVendor == "0" {
-		db = db.Where("models.vendor_id = 0")
-	}
-	if hasTags == "1" {
-		db = db.Where("models.tags != ''")
-	} else if hasTags == "0" {
-		db = db.Where("models.tags = ''")
+	if syncValue, ok := parseModelSyncFilter(syncOfficial); ok {
+		db = db.Where("models.sync_official = ?", syncValue)
 	}
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
@@ -263,4 +219,42 @@ func SearchModels(keyword string, vendor string, hasIcon, hasDescription, hasVen
 		return nil, 0, err
 	}
 	return models, total, nil
+}
+
+// parseModelStatusFilter maps UI/API status values to the models.status column.
+// Returns ok=false when no status filter should be applied.
+func parseModelStatusFilter(status string) (value int, ok bool) {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "", "all":
+		return 0, false
+	case "enabled", "1":
+		return 1, true
+	case "disabled", "0":
+		return 0, true
+	default:
+		n, err := strconv.Atoi(status)
+		if err != nil {
+			return 0, false
+		}
+		return n, true
+	}
+}
+
+// parseModelSyncFilter maps UI/API sync values to the models.sync_official column.
+// Returns ok=false when no sync filter should be applied.
+func parseModelSyncFilter(syncOfficial string) (value int, ok bool) {
+	switch strings.ToLower(strings.TrimSpace(syncOfficial)) {
+	case "", "all":
+		return 0, false
+	case "yes", "1":
+		return 1, true
+	case "no", "0":
+		return 0, true
+	default:
+		n, err := strconv.Atoi(syncOfficial)
+		if err != nil {
+			return 0, false
+		}
+		return n, true
+	}
 }

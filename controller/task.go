@@ -2,23 +2,16 @@ package controller
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay"
-	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
-
-// UpdateTaskBulk 薄入口，实际轮询逻辑在 service 层
-func UpdateTaskBulk() {
-	service.TaskPollingLoop()
-}
 
 func GetAllTask(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
@@ -34,32 +27,6 @@ func GetAllTask(c *gin.Context) {
 		StartTimestamp: startTimestamp,
 		EndTimestamp:   endTimestamp,
 		ChannelID:      c.Query("channel_id"),
-		UserID:         c.Query("user_id"),
-	}
-
-	// 支持多平台过滤（逗号分隔），与单平台互斥
-	if platformsStr := c.Query("platforms"); platformsStr != "" && queryParams.Platform == "" {
-		for _, p := range strings.Split(platformsStr, ",") {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				queryParams.Platforms = append(queryParams.Platforms, constant.TaskPlatform(p))
-			}
-		}
-	}
-
-	// 按用户名搜索：解析为用户 ID 列表
-	username := c.Query("username")
-	if username != "" {
-		userIDs, err := model.GetUserIdsByUsername(username)
-		if err == nil && len(userIDs) > 0 {
-			queryParams.UserIDs = userIDs
-		} else {
-			// 用户名无匹配，直接返回空结果
-			pageInfo.SetTotal(0)
-			pageInfo.SetItems([]*dto.TaskDto{})
-			common.ApiSuccess(c, pageInfo)
-			return
-		}
 	}
 
 	items := model.TaskGetAllTasks(pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
@@ -86,16 +53,6 @@ func GetUserTask(c *gin.Context) {
 		EndTimestamp:   endTimestamp,
 	}
 
-	// 支持多平台过滤（逗号分隔），与单平台互斥
-	if platformsStr := c.Query("platforms"); platformsStr != "" && queryParams.Platform == "" {
-		for _, p := range strings.Split(platformsStr, ",") {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				queryParams.Platforms = append(queryParams.Platforms, constant.TaskPlatform(p))
-			}
-		}
-	}
-
 	items := model.TaskGetAllUserTask(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
 	total := model.TaskCountAllUserTask(userId, queryParams)
 	pageInfo.SetTotal(int(total))
@@ -118,24 +75,6 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			}
 		}
 	}
-
-	// 批量收集需要查询的 token ID
-	tokenIdSet := types.NewSet[int]()
-	if fillUser {
-		for _, task := range tasks {
-			if task.PrivateData.TokenId != 0 {
-				tokenIdSet.Add(task.PrivateData.TokenId)
-			}
-		}
-	}
-	tokenInfoMap := make(map[int]*model.Token)
-	for _, tokenId := range tokenIdSet.Items() {
-		token, err := model.GetTokenById(tokenId)
-		if err == nil {
-			tokenInfoMap[tokenId] = token
-		}
-	}
-
 	result := make([]*dto.TaskDto, len(tasks))
 	for i, task := range tasks {
 		if fillUser {
@@ -144,13 +83,6 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			}
 		}
 		result[i] = relay.TaskModel2Dto(task)
-		// 填充令牌信息（仅管理员视图）
-		if fillUser && task.PrivateData.TokenId != 0 {
-			if token, ok := tokenInfoMap[task.PrivateData.TokenId]; ok {
-				result[i].TokenName = token.Name
-				result[i].TokenKey = "sk-" + token.Key
-			}
-		}
 	}
 	return result
 }

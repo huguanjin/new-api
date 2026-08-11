@@ -23,7 +23,6 @@ func SetVideoRouter(router *gin.Engine) {
 		videoV1Router.POST("/video/generations", controller.RelayTask)
 		videoV1Router.GET("/video/generations/:task_id", controller.RelayTaskFetch)
 		videoV1Router.POST("/videos/:video_id/remix", controller.RelayTask)
-		videoV1Router.POST("/videos/extend", controller.RelayTask)
 	}
 	// openai compatible API video routes
 	// docs: https://platform.openai.com/docs/api-reference/videos/create
@@ -49,14 +48,5 @@ func SetVideoRouter(router *gin.Engine) {
 	{
 		// Maps to: /?Action=CVSync2AsyncSubmitTask&Version=2022-08-31 and /?Action=CVSync2AsyncGetResult&Version=2022-08-31
 		jimengOfficialGroup.POST("/", controller.RelayTask)
-	}
-
-	// Seedance asset management API routes
-	assetGroup := router.Group("/api/asset")
-	assetGroup.Use(middleware.RouteTag("relay"))
-	assetGroup.Use(middleware.TokenAuth())
-	{
-		assetGroup.POST("/createMedia", controller.AssetCreate)
-		assetGroup.GET("/get", controller.AssetGet)
 	}
 }

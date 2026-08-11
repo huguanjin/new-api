@@ -14,7 +14,7 @@ import (
 type Token struct {
 	Id                 int            `json:"id"`
 	UserId             int            `json:"user_id" gorm:"index"`
-	Key                string         `json:"key" gorm:"type:char(48);uniqueIndex"`
+	Key                string         `json:"key" gorm:"type:varchar(128);uniqueIndex"`
 	Status             int            `json:"status" gorm:"default:1"`
 	Name               string         `json:"name" gorm:"index" `
 	CreatedTime        int64          `json:"created_time" gorm:"bigint"`
@@ -23,16 +23,62 @@ type Token struct {
 	RemainQuota        int            `json:"remain_quota" gorm:"default:0"`
 	UnlimitedQuota     bool           `json:"unlimited_quota"`
 	ModelLimitsEnabled bool           `json:"model_limits_enabled"`
-	ModelLimits        string         `json:"model_limits" gorm:"type:varchar(1024);default:''"`
+	ModelLimits        string         `json:"model_limits" gorm:"type:text"`
 	AllowIps           *string        `json:"allow_ips" gorm:"default:''"`
 	UsedQuota          int            `json:"used_quota" gorm:"default:0"` // used quota
 	Group              string         `json:"group" gorm:"default:''"`
 	CrossGroupRetry    bool           `json:"cross_group_retry"` // 跨分组重试，仅auto分组有效
+	AutoGroups         string         `json:"-" gorm:"type:text"`
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
+}
+
+func (token *Token) GetAutoGroups() ([]string, error) {
+	if token.AutoGroups == "" {
+		return nil, nil
+	}
+	var groups []string
+	if err := common.UnmarshalJsonStr(token.AutoGroups, &groups); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+func (token *Token) SetAutoGroups(groups []string) error {
+	if len(groups) == 0 {
+		token.AutoGroups = ""
+		return nil
+	}
+	data, err := common.Marshal(groups)
+	if err != nil {
+		return err
+	}
+	token.AutoGroups = string(data)
+	return nil
 }
 
 func (token *Token) Clean() {
 	token.Key = ""
+}
+
+func MaskTokenKey(key string) string {
+	if key == "" {
+		return ""
+	}
+	if len(key) <= 4 {
+		return strings.Repeat("*", len(key))
+	}
+	if len(key) <= 8 {
+		return key[:2] + "****" + key[len(key)-2:]
+	}
+	return key[:4] + "**********" + key[len(key)-4:]
+}
+
+func (token *Token) GetFullKey() string {
+	return token.Key
+}
+
+func (token *Token) GetMaskedKey() string {
+	return MaskTokenKey(token.Key)
 }
 
 func (token *Token) GetIpLimits() []string {
@@ -77,28 +123,35 @@ func sanitizeLikePattern(input string) (string, error) {
 	input = strings.ReplaceAll(input, "!", "!!")
 	input = strings.ReplaceAll(input, `_`, `!_`)
 
-	// 2. 连续的 % 直接拒绝
-	if strings.Contains(input, "%%") {
-		return "", errors.New("搜索模式中不允许包含连续的 % 通配符")
-	}
-
-	// 3. 统计 % 数量，不得超过 2
-	count := strings.Count(input, "%")
-	if count > 2 {
-		return "", errors.New("搜索模式中最多允许包含 2 个 % 通配符")
-	}
-
-	// 4. 含 % 时，去掉 % 后关键词长度必须 >= 2
-	if count > 0 {
-		stripped := strings.ReplaceAll(input, "%", "")
-		if len(stripped) < 2 {
-			return "", errors.New("使用模糊搜索时，关键词长度至少为 2 个字符")
-		}
-		return input, nil
+	if err := validateLikePattern(input); err != nil {
+		return "", err
 	}
 
 	// 5. 无 % 时，精确全匹配
 	return input, nil
+}
+
+func validateLikePattern(input string) error {
+	// 1. 连续的 % 直接拒绝
+	if strings.Contains(input, "%%") {
+		return errors.New("搜索模式中不允许包含连续的 % 通配符")
+	}
+
+	// 2. 统计 % 数量，不得超过 2
+	count := strings.Count(input, "%")
+	if count > 2 {
+		return errors.New("搜索模式中最多允许包含 2 个 % 通配符")
+	}
+
+	// 3. 含 % 时，去掉 % 后关键词长度必须 >= 2
+	if count > 0 {
+		stripped := strings.ReplaceAll(input, "%", "")
+		if len(stripped) < 2 {
+			return errors.New("使用模糊搜索时，关键词长度至少为 2 个字符")
+		}
+	}
+
+	return nil
 }
 
 const searchHardLimit = 100
@@ -166,19 +219,14 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 
 func ValidateUserToken(key string) (token *Token, err error) {
 	if key == "" {
-		return nil, errors.New("未提供令牌")
+		return nil, ErrTokenNotProvided
 	}
 	token, err = GetTokenByKey(key, false)
 	if err == nil {
-		if token.Status == common.TokenStatusExhausted {
-			keyPrefix := key[:3]
-			keySuffix := key[len(key)-3:]
-			return token, errors.New("该令牌额度已用尽 TokenStatusExhausted[sk-" + keyPrefix + "***" + keySuffix + "]")
-		} else if token.Status == common.TokenStatusExpired {
-			return token, fmt.Errorf("该令牌已过期 [%s]", common.MaskTokenKey(key))
-		}
-		if token.Status != common.TokenStatusEnabled {
-			return token, fmt.Errorf("该令牌状态不可用 [%s]", common.MaskTokenKey(key))
+		if token.Status == common.TokenStatusExhausted ||
+			token.Status == common.TokenStatusExpired ||
+			token.Status != common.TokenStatusEnabled {
+			return token, ErrTokenInvalid
 		}
 		if token.ExpiredTime != -1 && token.ExpiredTime < common.GetTimestamp() {
 			if !common.RedisEnabled {
@@ -188,89 +236,25 @@ func ValidateUserToken(key string) (token *Token, err error) {
 					common.SysLog("failed to update token status" + err.Error())
 				}
 			}
-			return token, fmt.Errorf("该令牌已过期 [%s]", common.MaskTokenKey(key))
+			return token, ErrTokenInvalid
 		}
 		if !token.UnlimitedQuota && token.RemainQuota <= 0 {
 			if !common.RedisEnabled {
-				// in this case, we can make sure the token is exhausted
 				token.Status = common.TokenStatusExhausted
 				err := token.SelectUpdate()
 				if err != nil {
 					common.SysLog("failed to update token status" + err.Error())
 				}
 			}
-			keyPrefix := key[:3]
-			keySuffix := key[len(key)-3:]
-			return token, errors.New(fmt.Sprintf("[sk-%s***%s] 该令牌额度已用尽 !token.UnlimitedQuota && token.RemainQuota = %d", keyPrefix, keySuffix, token.RemainQuota))
+			return token, ErrTokenInvalid
 		}
 		return token, nil
 	}
 	common.SysLog("ValidateUserToken: failed to get token: " + err.Error())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("无效的令牌 [%s]", common.MaskTokenKey(key))
-	} else {
-		return nil, fmt.Errorf("无效的令牌，数据库查询出错 [%s]，请联系管理员", common.MaskTokenKey(key))
+		return nil, ErrTokenInvalid
 	}
-}
-
-// DiagnoseTokenKey 诊断令牌验证失败的原因。
-// 对比传入的 key 与数据库中的实际令牌，判断属于正常报错还是程序/缓存问题。
-// cachedToken 是 ValidateUserToken 返回的 token 对象（可能为 nil）。
-func DiagnoseTokenKey(key string, cachedToken *Token) map[string]interface{} {
-	result := map[string]interface{}{}
-
-	if cachedToken != nil {
-		// 令牌在缓存/DB 中找到了，但验证失败（过期/禁用/额度耗尽等）
-		result["token_match"] = true
-		result["token_id"] = cachedToken.Id
-		result["token_status"] = cachedToken.Status
-
-		if common.RedisEnabled {
-			// Redis 启用时，ValidateUserToken 可能从缓存获取了 token
-			// 直接查 DB 对比状态是否一致
-			dbToken, dbErr := GetTokenByKey(key, true)
-			if dbErr != nil {
-				result["diagnosis"] = "令牌在缓存中存在但数据库查询失败，请排查数据库问题"
-				result["db_error"] = dbErr.Error()
-			} else if dbToken.Status != cachedToken.Status {
-				result["diagnosis"] = "令牌存在但缓存状态与数据库不一致，请排查缓存同步问题"
-				result["cached_status"] = cachedToken.Status
-				result["db_status"] = dbToken.Status
-			} else if dbToken.RemainQuota != cachedToken.RemainQuota {
-				result["diagnosis"] = "令牌存在但缓存额度与数据库不一致，请排查缓存同步问题"
-				result["cached_remain_quota"] = cachedToken.RemainQuota
-				result["db_remain_quota"] = dbToken.RemainQuota
-			} else {
-				result["diagnosis"] = "令牌存在且缓存与数据库一致，验证失败属于正常状态变更"
-			}
-		} else {
-			result["diagnosis"] = "令牌存在，验证失败属于正常状态变更"
-		}
-	} else {
-		// 令牌未找到 — 检查是否存在软删除记录
-		var deletedToken Token
-		err := DB.Unscoped().Where(commonKeyCol+" = ?", key).First(&deletedToken).Error
-		if err == nil {
-			// 找到了记录
-			if deletedToken.DeletedAt.Valid {
-				result["token_match"] = true
-				result["diagnosis"] = "令牌已被删除但仍在使用，需排查调用方"
-				result["token_id"] = deletedToken.Id
-				result["deleted_at"] = deletedToken.DeletedAt.Time.Format("2006-01-02 15:04:05")
-			} else {
-				// 记录存在且未被删除，但 ValidateUserToken 仍然返回 nil — 不应发生
-				result["token_match"] = true
-				result["diagnosis"] = "令牌在数据库中存在且未删除，但验证时未找到，可能是程序问题，需开发人员排查"
-				result["token_id"] = deletedToken.Id
-				result["token_status"] = deletedToken.Status
-			}
-		} else {
-			result["token_match"] = false
-			result["diagnosis"] = "令牌不存在，属于正常报错（令牌值无效或已被篡改）"
-		}
-	}
-
-	return result
+	return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
 }
 
 func GetTokenByIds(id int, userId int) (*Token, error) {
@@ -313,13 +297,11 @@ func GetTokenByKey(key string, fromDB bool) (token *Token, err error) {
 	}()
 	if !fromDB && common.RedisEnabled {
 		// Try Redis first
-		token, err = cacheGetTokenByKey(key)
+		token, err := cacheGetTokenByKey(key)
 		if err == nil {
 			return token, nil
 		}
-		// Clear Redis error - fall through to DB
-		err = nil
-		token = nil
+		// Don't return error - fall through to DB
 	}
 	fromDB = true
 	err = DB.Where(commonKeyCol+" = ?", key).First(&token).Error
@@ -329,31 +311,21 @@ func GetTokenByKey(key string, fromDB bool) (token *Token, err error) {
 func (token *Token) Insert() error {
 	var err error
 	err = DB.Create(token).Error
-	if err == nil && common.RedisEnabled {
-		t := *token
-		gopool.Go(func() {
-			if cacheErr := cacheSetToken(t); cacheErr != nil {
-				common.SysLog("failed to set token cache after insert: " + cacheErr.Error())
-			}
-		})
-	}
 	return err
 }
 
 // Update Make sure your token's fields is completed, because this will update non-zero values
 func (token *Token) Update() (err error) {
-	defer func() {
-		if shouldUpdateRedis(true, err) {
-			gopool.Go(func() {
-				err := cacheSetToken(*token)
-				if err != nil {
-					common.SysLog("failed to update token cache: " + err.Error())
-				}
-			})
-		}
-	}()
 	err = DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
-		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry").Updates(token).Error
+		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry", "auto_groups").Updates(token).Error
+	if shouldUpdateRedis(true, err) {
+		if cacheErr := cacheSetToken(*token); cacheErr != nil {
+			common.SysLog("failed to update token cache: " + cacheErr.Error())
+			if deleteErr := cacheDeleteToken(token.Key); deleteErr != nil {
+				common.SysLog("failed to invalidate token cache after update: " + deleteErr.Error())
+			}
+		}
+	}
 	return err
 }
 
@@ -531,98 +503,46 @@ func BatchDeleteTokens(ids []int, userId int) (int, error) {
 	return len(tokens), nil
 }
 
-// GetTokensByUserId returns all tokens for a specific user.
-func GetTokensByUserId(userId int) ([]*Token, error) {
-	var tokens []*Token
-	err := DB.Where("user_id = ?", userId).Order("id desc").Find(&tokens).Error
+func GetTokenKeysByIds(ids []int, userId int) ([]Token, error) {
+	var tokens []Token
+	err := DB.Select("id", commonKeyCol).
+		Where("user_id = ? AND id IN (?)", userId, ids).
+		Find(&tokens).Error
 	return tokens, err
 }
 
-// BatchInsertTokens inserts multiple tokens within a transaction.
-func BatchInsertTokens(tokens []*Token) error {
-	return DB.Transaction(func(tx *gorm.DB) error {
-		for _, token := range tokens {
-			if err := tx.Create(token).Error; err != nil {
-				return err
-			}
-		}
+// InvalidateUserTokensCache 清理指定用户所有令牌在 Redis 中的缓存，
+// 配合 InvalidateUserCache 使用，可在用户被禁用/删除时立即阻断其令牌的请求。
+// 下一次请求将从数据库重新加载令牌及用户状态，从而立即识别出被禁用的用户。
+func InvalidateUserTokensCache(userId int) error {
+	if !common.RedisEnabled {
 		return nil
-	})
+	}
+	if userId <= 0 {
+		return errors.New("userId 无效")
+	}
+	var tokens []Token
+	if err := DB.Unscoped().
+		Select("id", commonKeyCol).
+		Where("user_id = ?", userId).
+		Find(&tokens).Error; err != nil {
+		return err
+	}
+	return invalidateTokensCache(tokens)
 }
 
-// TokenWithUser extends Token with the owner's username for admin views.
-type TokenWithUser struct {
-	Token
-	Username string `json:"username" gorm:"column:username"`
-}
-
-// AdminSearchTokens searches tokens across all users with optional filters.
-// creatorId > 0 restricts results to tokens owned by users created by creatorId.
-func AdminSearchTokens(keyword string, tokenKey string, username string, userIdFilter int, status int, group string, creatorId int, offset int, limit int) (tokens []*TokenWithUser, total int64, err error) {
-	if limit <= 0 || limit > searchHardLimit {
-		limit = searchHardLimit
+func invalidateTokensCache(tokens []Token) error {
+	if !common.RedisEnabled {
+		return nil
 	}
-	if offset < 0 {
-		offset = 0
-	}
-
-	baseQuery := DB.Model(&Token{}).
-		Select("tokens.*, users.username as username").
-		Joins("LEFT JOIN users ON tokens.user_id = users.id")
-
-	// Non-root admin: only see tokens of users they created
-	if creatorId > 0 {
-		baseQuery = baseQuery.Where("users.creator_id = ?", creatorId)
-	}
-
-	if keyword != "" {
-		keywordPattern, err := sanitizeLikePattern(keyword)
-		if err != nil {
-			return nil, 0, err
+	var firstErr error
+	for _, t := range tokens {
+		if t.Key == "" {
+			continue
 		}
-		baseQuery = baseQuery.Where("tokens.name LIKE ? ESCAPE '!'", keywordPattern)
-	}
-
-	if tokenKey != "" {
-		tokenKey = strings.TrimPrefix(tokenKey, "sk-")
-		tokenPattern, err := sanitizeLikePattern(tokenKey)
-		if err != nil {
-			return nil, 0, err
+		if err := cacheDeleteToken(t.Key); err != nil && firstErr == nil {
+			firstErr = err
 		}
-		baseQuery = baseQuery.Where("tokens."+commonKeyCol+" LIKE ? ESCAPE '!'", tokenPattern)
 	}
-
-	if username != "" {
-		usernamePattern, err := sanitizeLikePattern(username)
-		if err != nil {
-			return nil, 0, err
-		}
-		baseQuery = baseQuery.Where("users.username LIKE ? ESCAPE '!'", usernamePattern)
-	}
-
-	if userIdFilter > 0 {
-		baseQuery = baseQuery.Where("tokens.user_id = ?", userIdFilter)
-	}
-
-	if status >= 0 {
-		baseQuery = baseQuery.Where("tokens.status = ?", status)
-	}
-
-	if group != "" {
-		baseQuery = baseQuery.Where("tokens."+commonGroupCol+" = ?", group)
-	}
-
-	// Soft-delete filter: only non-deleted tokens
-	baseQuery = baseQuery.Where("tokens.deleted_at IS NULL")
-
-	err = baseQuery.Count(&total).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	err = baseQuery.Order("tokens.id desc").Offset(offset).Limit(limit).Find(&tokens).Error
-	if err != nil {
-		return nil, 0, err
-	}
-	return tokens, total, nil
+	return firstErr
 }

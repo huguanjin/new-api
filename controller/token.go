@@ -7,14 +7,114 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 )
+
+type tokenAutoGroupsInput struct {
+	Set    bool
+	Groups []string
+}
+
+func (input *tokenAutoGroupsInput) UnmarshalJSON(data []byte) error {
+	input.Set = true
+	if strings.TrimSpace(string(data)) == "null" {
+		input.Groups = nil
+		return nil
+	}
+	return common.Unmarshal(data, &input.Groups)
+}
+
+type tokenRequest struct {
+	model.Token
+	AutoGroups tokenAutoGroupsInput `json:"auto_groups"`
+}
+
+type tokenResponse struct {
+	*model.Token
+	AutoGroups []string `json:"auto_groups"`
+}
+
+func buildMaskedTokenResponse(token *model.Token) *tokenResponse {
+	if token == nil {
+		return nil
+	}
+	maskedToken := *token
+	maskedToken.Key = token.GetMaskedKey()
+	autoGroups, err := token.GetAutoGroups()
+	if err != nil {
+		common.SysError(fmt.Sprintf("failed to parse auto groups for token %d: %v", token.Id, err))
+		autoGroups = nil
+	}
+	if len(autoGroups) == 0 {
+		autoGroups = nil
+	}
+	return &tokenResponse{Token: &maskedToken, AutoGroups: autoGroups}
+}
+
+func buildMaskedTokenResponses(tokens []*model.Token) []*tokenResponse {
+	maskedTokens := make([]*tokenResponse, 0, len(tokens))
+	for _, token := range tokens {
+		maskedTokens = append(maskedTokens, buildMaskedTokenResponse(token))
+	}
+	return maskedTokens
+}
+
+func getTokenRequestUserGroup(c *gin.Context) (string, error) {
+	if userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup); userGroup != "" {
+		return userGroup, nil
+	}
+	if userGroup := c.GetString("group"); userGroup != "" {
+		return userGroup, nil
+	}
+	return model.GetUserGroup(c.GetInt("id"), false)
+}
+
+func setTokenAutoGroups(c *gin.Context, token *model.Token, groups []string) bool {
+	if len(groups) == 0 {
+		if err := token.SetAutoGroups(nil); err != nil {
+			common.ApiError(c, err)
+			return false
+		}
+		return true
+	}
+
+	maxCount := setting.GetMaxTokenAutoGroups()
+	if len(groups) > maxCount {
+		common.ApiErrorI18n(c, i18n.MsgTokenAutoGroupsTooMany, map[string]any{"Max": maxCount})
+		return false
+	}
+
+	userGroup, err := getTokenRequestUserGroup(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return false
+	}
+	seen := make(map[string]struct{}, len(groups))
+	for _, group := range groups {
+		if _, ok := seen[group]; ok {
+			common.ApiErrorI18n(c, i18n.MsgTokenAutoGroupsDuplicate, map[string]any{"Group": group})
+			return false
+		}
+		seen[group] = struct{}{}
+		if !service.IsUserSelectableGroup(userGroup, group) {
+			common.ApiErrorI18n(c, i18n.MsgTokenAutoGroupsInvalid, map[string]any{"Group": group})
+			return false
+		}
+	}
+
+	if err := token.SetAutoGroups(groups); err != nil {
+		common.ApiError(c, err)
+		return false
+	}
+	return true
+}
 
 func GetAllTokens(c *gin.Context) {
 	userId := c.GetInt("id")
@@ -26,9 +126,8 @@ func GetAllTokens(c *gin.Context) {
 	}
 	total, _ := model.CountUserTokens(userId)
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(tokens)
+	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)
-	return
 }
 
 func SearchTokens(c *gin.Context) {
@@ -44,9 +143,8 @@ func SearchTokens(c *gin.Context) {
 		return
 	}
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(tokens)
+	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)
-	return
 }
 
 func GetToken(c *gin.Context) {
@@ -61,12 +159,36 @@ func GetToken(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    token,
+	common.ApiSuccess(c, buildMaskedTokenResponse(token))
+}
+
+func GetTokenAutoGroups(c *gin.Context) {
+	userGroup, err := getTokenRequestUserGroup(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"groups":    service.GetUserAutoGroup(userGroup),
+		"max_count": setting.GetMaxTokenAutoGroups(),
 	})
-	return
+}
+
+func GetTokenKey(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	userId := c.GetInt("id")
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	token, err := model.GetTokenByIds(id, userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"key": token.GetFullKey(),
+	})
 }
 
 func GetTokenStatus(c *gin.Context) {
@@ -139,47 +261,14 @@ func GetTokenUsage(c *gin.Context) {
 	})
 }
 
-// validateTokenGroup 验证令牌分组（支持单分组、auto、自定义多分组）
-func validateTokenGroup(c *gin.Context, group string) bool {
-	if group == "" || group == "auto" {
-		return true
-	}
-	userId := c.GetInt("id")
-	userGroup, _ := model.GetUserGroup(userId, false)
-	usableGroups := service.GetUserUsableGroups(userGroup)
-
-	if service.IsMultiGroupToken(group) {
-		groups := service.ParseTokenGroups(group)
-		if len(groups) < 2 {
-			common.ApiError(c, fmt.Errorf("自定义多分组至少需要2个分组"))
-			return false
-		}
-		for _, g := range groups {
-			if _, ok := usableGroups[g]; !ok {
-				common.ApiError(c, fmt.Errorf("无权访问分组 %s", g))
-				return false
-			}
-			if !ratio_setting.ContainsGroupRatio(g) {
-				common.ApiError(c, fmt.Errorf("分组 %s 已被弃用", g))
-				return false
-			}
-		}
-	} else {
-		if _, ok := usableGroups[group]; !ok {
-			common.ApiError(c, fmt.Errorf("无权访问分组 %s", group))
-			return false
-		}
-	}
-	return true
-}
-
 func AddToken(c *gin.Context) {
-	token := model.Token{}
-	err := c.ShouldBindJSON(&token)
+	request := tokenRequest{}
+	err := c.ShouldBindJSON(&request)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
+	token := request.Token
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
@@ -210,14 +299,18 @@ func AddToken(c *gin.Context) {
 		})
 		return
 	}
+	if token.Group == "auto" {
+		if !setTokenAutoGroups(c, &token, request.AutoGroups.Groups) {
+			return
+		}
+	} else {
+		token.CrossGroupRetry = false
+		_ = token.SetAutoGroups(nil)
+	}
 	key, err := common.GenerateKey()
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgTokenGenerateFailed)
 		common.SysLog("failed to generate token key: " + err.Error())
-		return
-	}
-	// 验证令牌分组
-	if !validateTokenGroup(c, token.Group) {
 		return
 	}
 	cleanToken := model.Token{
@@ -234,6 +327,7 @@ func AddToken(c *gin.Context) {
 		AllowIps:           token.AllowIps,
 		Group:              token.Group,
 		CrossGroupRetry:    token.CrossGroupRetry,
+		AutoGroups:         token.AutoGroups,
 	}
 	err = cleanToken.Insert()
 	if err != nil {
@@ -244,7 +338,6 @@ func AddToken(c *gin.Context) {
 		"success": true,
 		"message": "",
 	})
-	return
 }
 
 func DeleteToken(c *gin.Context) {
@@ -259,18 +352,18 @@ func DeleteToken(c *gin.Context) {
 		"success": true,
 		"message": "",
 	})
-	return
 }
 
 func UpdateToken(c *gin.Context) {
 	userId := c.GetInt("id")
 	statusOnly := c.Query("status_only")
-	token := model.Token{}
-	err := c.ShouldBindJSON(&token)
+	request := tokenRequest{}
+	err := c.ShouldBindJSON(&request)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
+	token := request.Token
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
@@ -304,10 +397,6 @@ func UpdateToken(c *gin.Context) {
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
 	} else {
-		// 验证令牌分组
-		if !validateTokenGroup(c, token.Group) {
-			return
-		}
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime
@@ -318,6 +407,14 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
+		if token.Group != "auto" {
+			cleanToken.CrossGroupRetry = false
+			_ = cleanToken.SetAutoGroups(nil)
+		} else if request.AutoGroups.Set {
+			if !setTokenAutoGroups(c, cleanToken, request.AutoGroups.Groups) {
+				return
+			}
+		}
 	}
 	err = cleanToken.Update()
 	if err != nil {
@@ -327,7 +424,7 @@ func UpdateToken(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    cleanToken,
+		"data":    buildMaskedTokenResponse(cleanToken),
 	})
 }
 
@@ -354,76 +451,25 @@ func DeleteTokenBatch(c *gin.Context) {
 	})
 }
 
-// GetUserTokensByAdmin allows an admin to view tokens of a user they created.
-func GetUserTokensByAdmin(c *gin.Context) {
-	targetUserId, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
+func GetTokenKeysBatch(c *gin.Context) {
+	tokenBatch := TokenBatch{}
+	if err := c.ShouldBindJSON(&tokenBatch); err != nil || len(tokenBatch.Ids) == 0 {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
-
-	myId := c.GetInt("id")
-	myRole := c.GetInt("role")
-
-	// Verify the admin has permission to view this user's tokens
-	if myRole != common.RoleRootUser {
-		targetUser, err := model.GetUserById(targetUserId, false)
-		if err != nil {
-			common.ApiErrorI18n(c, i18n.MsgUserNotExists)
-			return
-		}
-		if targetUser.CreatorId != myId {
-			common.ApiErrorI18n(c, i18n.MsgBatchUserNoPermission)
-			return
-		}
+	if len(tokenBatch.Ids) > 100 {
+		common.ApiErrorI18n(c, i18n.MsgBatchTooMany, map[string]any{"Max": 100})
+		return
 	}
-
-	tokens, err := model.GetTokensByUserId(targetUserId)
+	userId := c.GetInt("id")
+	tokens, err := model.GetTokenKeysByIds(tokenBatch.Ids, userId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    tokens,
-	})
-}
-
-// AdminSearchTokens allows admins to search tokens across all users.
-func AdminSearchTokens(c *gin.Context) {
-	keyword := c.Query("keyword")
-	tokenKey := c.Query("token")
-	status := -1 // -1 means no filter
-	if statusStr := c.Query("status"); statusStr != "" {
-		if s, err := strconv.Atoi(statusStr); err == nil {
-			status = s
-		}
+	keysMap := make(map[int]string)
+	for _, t := range tokens {
+		keysMap[t.Id] = t.GetFullKey()
 	}
-	userIdFilter := 0
-	if userIdStr := c.Query("user_id"); userIdStr != "" {
-		if uid, err := strconv.Atoi(userIdStr); err == nil {
-			userIdFilter = uid
-		}
-	}
-	group := c.Query("group")
-	username := c.Query("username")
-
-	myId := c.GetInt("id")
-	myRole := c.GetInt("role")
-	creatorId := 0
-	if myRole != common.RoleRootUser {
-		creatorId = myId
-	}
-
-	pageInfo := common.GetPageQuery(c)
-	tokens, total, err := model.AdminSearchTokens(keyword, tokenKey, username, userIdFilter, status, group, creatorId, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(tokens)
-	common.ApiSuccess(c, pageInfo)
+	common.ApiSuccess(c, gin.H{"keys": keysMap})
 }

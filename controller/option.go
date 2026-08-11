@@ -1,15 +1,17 @@
 package controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
@@ -17,66 +19,101 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func isRootOnlyOption(key string) bool {
-	rootOnlyExact := map[string]bool{
-		"SidebarModulesAdmin":  true,
-		"AdminRolePermissions": true,
+var completionRatioMetaOptionKeys = []string{
+	"ModelPrice",
+	"ModelRatio",
+	"CompletionRatio",
+	"CacheRatio",
+	"CreateCacheRatio",
+	"ImageRatio",
+	"AudioRatio",
+	"AudioCompletionRatio",
+}
+
+func isPaymentComplianceOptionKey(key string) bool {
+	return strings.HasPrefix(key, "payment_setting.compliance_")
+}
+
+func isPositiveOptionValue(value string) bool {
+	intValue, err := strconv.Atoi(strings.TrimSpace(value))
+	if err == nil {
+		return intValue > 0
 	}
-	if rootOnlyExact[key] {
-		return true
+	floatValue, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	return err == nil && floatValue > 0
+}
+
+func collectModelNamesFromOptionValue(raw string, modelNames map[string]struct{}) {
+	if strings.TrimSpace(raw) == "" {
+		return
 	}
-	rootOnlyPrefixes := []string{
-		"GitHubClient", "GitHubOAuth",
-		"discord.", "oidc.",
-		"LinuxDOClient", "LinuxDOOAuth",
-		"WeChat", "Telegram",
-		"SMTP", "Turnstile",
-		"EmailDomain", "EmailVerification",
-		"PasswordRegist", "PasswordLogin",
-		"RegisterEnabled",
-		"custom_oauth.",
+
+	var parsed map[string]any
+	if err := common.UnmarshalJsonStr(raw, &parsed); err != nil {
+		return
 	}
-	for _, prefix := range rootOnlyPrefixes {
-		if strings.HasPrefix(key, prefix) {
-			return true
-		}
+
+	for modelName := range parsed {
+		modelNames[modelName] = struct{}{}
 	}
-	rootOnlySuffixes := []string{"Token", "Secret", "Key", "Password", "secret", "api_key"}
-	for _, suffix := range rootOnlySuffixes {
-		if strings.HasSuffix(key, suffix) {
-			return true
-		}
+}
+
+func buildCompletionRatioMetaValue(optionValues map[string]string) string {
+	modelNames := make(map[string]struct{})
+	for _, key := range completionRatioMetaOptionKeys {
+		collectModelNamesFromOptionValue(optionValues[key], modelNames)
 	}
-	return false
+
+	meta := make(map[string]ratio_setting.CompletionRatioInfo, len(modelNames))
+	for modelName := range modelNames {
+		meta[modelName] = ratio_setting.GetCompletionRatioInfo(modelName)
+	}
+
+	jsonBytes, err := common.Marshal(meta)
+	if err != nil {
+		return "{}"
+	}
+	return string(jsonBytes)
 }
 
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
-	myRole := c.GetInt("role")
+	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if strings.HasSuffix(k, "Token") ||
+		if k == "theme.frontend" {
+			continue
+		}
+		value := common.Interface2String(v)
+		isSensitiveKey := strings.HasSuffix(k, "Token") ||
 			strings.HasSuffix(k, "Secret") ||
 			strings.HasSuffix(k, "Key") ||
 			strings.HasSuffix(k, "secret") ||
-			strings.HasSuffix(k, "api_key") {
-			continue
-		}
-		if myRole < common.RoleRootUser && isRootOnlyOption(k) {
+			strings.HasSuffix(k, "api_key")
+		if isSensitiveKey {
 			continue
 		}
 		options = append(options, &model.Option{
 			Key:   k,
-			Value: common.Interface2String(v),
+			Value: value,
 		})
+		for _, optionKey := range completionRatioMetaOptionKeys {
+			if optionKey == k {
+				optionValues[k] = value
+				break
+			}
+		}
 	}
 	common.OptionMapRWMutex.Unlock()
+	options = append(options, &model.Option{
+		Key:   "CompletionRatioMeta",
+		Value: buildCompletionRatioMetaValue(optionValues),
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
 		"data":    options,
 	})
-	return
 }
 
 type OptionUpdateRequest struct {
@@ -86,19 +123,11 @@ type OptionUpdateRequest struct {
 
 func UpdateOption(c *gin.Context) {
 	var option OptionUpdateRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&option)
+	err := common.DecodeJson(c.Request.Body, &option)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "无效的参数",
-		})
-		return
-	}
-	myRole := c.GetInt("role")
-	if myRole < common.RoleRootUser && isRootOnlyOption(option.Key) {
-		c.JSON(http.StatusForbidden, gin.H{
-			"success": false,
-			"message": "无权修改此选项",
 		})
 		return
 	}
@@ -111,6 +140,18 @@ func UpdateOption(c *gin.Context) {
 		option.Value = common.Interface2String(option.Value.(int))
 	default:
 		option.Value = fmt.Sprintf("%v", option.Value)
+	}
+	switch option.Key {
+	case "QuotaForInviter", "QuotaForInvitee":
+		if isPositiveOptionValue(option.Value.(string)) && !operation_setting.IsPaymentComplianceConfirmed() {
+			common.ApiErrorI18n(c, i18n.MsgPaymentComplianceRequired)
+			return
+		}
+	default:
+		if isPaymentComplianceOptionKey(option.Key) {
+			common.ApiErrorMsg(c, "合规确认字段不允许通过通用设置接口修改")
+			return
+		}
 	}
 	switch option.Key {
 	case "GitHubOAuthEnabled":
@@ -178,8 +219,43 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "theme.frontend":
+		if option.Value != "default" {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "Classic 前端已移除，主题只能设置为 default",
+			})
+			return
+		}
 	case "GroupRatio":
 		err = ratio_setting.CheckGroupRatio(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "gemini.safety_settings":
+		err = model_setting.ValidateGeminiSafetySettings(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "claude.default_max_tokens":
+		err = model_setting.ValidateClaudeDefaultMaxTokens(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case operation_setting.ToolPriceOptionKey:
+		err = operation_setting.ValidateToolPricesJSON(option.Value.(string))
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -211,15 +287,6 @@ func UpdateOption(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
 				"message": "音频补全倍率设置失败: " + err.Error(),
-			})
-			return
-		}
-	case "ResolutionRatio":
-		err = ratio_setting.UpdateResolutionRatioByJSONString(option.Value.(string))
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "分辨率倍率设置失败: " + err.Error(),
 			})
 			return
 		}
@@ -301,9 +368,12 @@ func UpdateOption(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	// 出于安全考虑只记录被修改的配置项名称，不记录配置值（可能含密钥等敏感信息）。
+	recordManageAudit(c, "option.update", map[string]interface{}{
+		"key": option.Key,
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
 	})
-	return
 }

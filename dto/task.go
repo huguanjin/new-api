@@ -49,8 +49,6 @@ type TaskDto struct {
 	Progress   string          `json:"progress"`
 	Properties any             `json:"properties"`
 	Username   string          `json:"username,omitempty"`
-	TokenName  string          `json:"token_name,omitempty"`
-	TokenKey   string          `json:"token_key,omitempty"`
 	Data       json.RawMessage `json:"data"`
 }
 

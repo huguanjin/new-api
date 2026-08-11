@@ -12,20 +12,21 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/dto"
+	taskdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/types"
 )
 
-func MidjourneyErrorWrapper(code int, desc string) *dto.MidjourneyResponse {
-	return &dto.MidjourneyResponse{
+func MidjourneyErrorWrapper(code int, desc string) *taskdto.MidjourneyResponse {
+	return &taskdto.MidjourneyResponse{
 		Code:        code,
 		Description: desc,
 	}
 }
 
-func MidjourneyErrorWithStatusCodeWrapper(code int, desc string, statusCode int) *dto.MidjourneyResponseWithStatusCode {
-	return &dto.MidjourneyResponseWithStatusCode{
+func MidjourneyErrorWithStatusCodeWrapper(code int, desc string, statusCode int) *taskdto.MidjourneyResponseWithStatusCode {
+	return &taskdto.MidjourneyResponseWithStatusCode{
 		StatusCode: statusCode,
 		Response:   *MidjourneyErrorWrapper(code, desc),
 	}
@@ -92,23 +93,21 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 	}
 	CloseResponseBodyGracefully(resp)
 	var errResponse dto.GeneralErrorResponse
+	responseBodyText := string(responseBody)
+	responseBodyPreview := common.LocalLogPreview(responseBodyText)
 	buildErrWithBody := func(message string) error {
 		if message == "" {
-			return fmt.Errorf("bad response status code %d, body: %s", resp.StatusCode, string(responseBody))
+			return fmt.Errorf("bad response status code %d, body: %s", resp.StatusCode, responseBodyText)
 		}
-		return fmt.Errorf("bad response status code %d, message: %s, body: %s", resp.StatusCode, message, string(responseBody))
+		return fmt.Errorf("bad response status code %d, message: %s, body: %s", resp.StatusCode, message, responseBodyText)
 	}
-
-	// For 413 (request too large), always surface the upstream response body so
-	// users can see the concrete reason (e.g. Gemini inline-data size limit).
-	showBody := showBodyWhenFail || resp.StatusCode == http.StatusRequestEntityTooLarge
 
 	err = common.Unmarshal(responseBody, &errResponse)
 	if err != nil {
-		if showBody {
+		if showBodyWhenFail {
 			newApiErr.Err = buildErrWithBody("")
 		} else {
-			logger.LogError(ctx, fmt.Sprintf("bad response status code %d, body: %s", resp.StatusCode, string(responseBody)))
+			logger.LogError(ctx, fmt.Sprintf("bad response status code %d, body: %s", resp.StatusCode, responseBodyPreview))
 			newApiErr.Err = fmt.Errorf("bad response status code %d", resp.StatusCode)
 		}
 		return
@@ -119,14 +118,20 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 		oaiError := errResponse.TryToOpenAIError()
 		if oaiError != nil {
 			newApiErr = types.WithOpenAIError(*oaiError, resp.StatusCode)
-			if showBody {
+			if showBodyWhenFail {
 				newApiErr.Err = buildErrWithBody(newApiErr.Error())
 			}
 			return
 		}
 	}
-	newApiErr = types.NewOpenAIError(errors.New(errResponse.ToMessage()), types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
-	if showBody {
+	message := errResponse.ToMessage()
+	if message == "" {
+		// The body parsed as JSON but carried no usable error message; log the
+		// raw body so the upstream failure remains diagnosable.
+		logger.LogError(ctx, fmt.Sprintf("bad response status code %d with empty error message, body: %s", resp.StatusCode, responseBodyPreview))
+	}
+	newApiErr = types.NewOpenAIError(errors.New(message), types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
+	if showBodyWhenFail {
 		newApiErr.Err = buildErrWithBody(newApiErr.Error())
 	}
 	return
@@ -186,13 +191,13 @@ func parseStatusCodeMappingValue(value any) (int, bool) {
 	}
 }
 
-func TaskErrorWrapperLocal(err error, code string, statusCode int) *dto.TaskError {
+func TaskErrorWrapperLocal(err error, code string, statusCode int) *taskdto.TaskError {
 	openaiErr := TaskErrorWrapper(err, code, statusCode)
 	openaiErr.LocalError = true
 	return openaiErr
 }
 
-func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
+func TaskErrorWrapper(err error, code string, statusCode int) *taskdto.TaskError {
 	text := err.Error()
 	lowerText := strings.ToLower(text)
 	if strings.Contains(lowerText, "post") || strings.Contains(lowerText, "dial") || strings.Contains(lowerText, "http") {
@@ -201,7 +206,7 @@ func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
 		text = common.MaskSensitiveInfo(text)
 	}
 	//避免暴露内部错误
-	taskError := &dto.TaskError{
+	taskError := &taskdto.TaskError{
 		Code:       code,
 		Message:    text,
 		StatusCode: statusCode,
@@ -212,11 +217,11 @@ func TaskErrorWrapper(err error, code string, statusCode int) *dto.TaskError {
 }
 
 // TaskErrorFromAPIError 将 PreConsumeBilling 返回的 NewAPIError 转换为 TaskError。
-func TaskErrorFromAPIError(apiErr *types.NewAPIError) *dto.TaskError {
+func TaskErrorFromAPIError(apiErr *types.NewAPIError) *taskdto.TaskError {
 	if apiErr == nil {
 		return nil
 	}
-	return &dto.TaskError{
+	return &taskdto.TaskError{
 		Code:       string(apiErr.GetErrorCode()),
 		Message:    apiErr.Err.Error(),
 		StatusCode: apiErr.StatusCode,
