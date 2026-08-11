@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,6 +39,35 @@ func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 
 	if len(geminiResponse.Candidates) == 0 && geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
 		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
+	}
+
+	if info.ChannelSetting.GeminiFilteredImageAsError &&
+		model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) {
+		hasContent := false
+		var finishMsg string
+		for _, cand := range geminiResponse.Candidates {
+			if len(cand.Content.Parts) > 0 {
+				hasContent = true
+				break
+			}
+			if cand.FinishMessage != nil && *cand.FinishMessage != "" && finishMsg == "" {
+				finishMsg = *cand.FinishMessage
+			}
+		}
+		if !hasContent {
+			if finishMsg == "" {
+				finishMsg = "image generation blocked by Gemini API"
+			}
+			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, "gemini_filtered_image_response")
+			newAPIError := types.NewOpenAIError(
+				errors.New(finishMsg),
+				types.ErrorCodeImageContentFiltered,
+				http.StatusBadRequest,
+				types.ErrOptionWithSkipRetry(),
+			)
+			service.ResetStatusCode(newAPIError, c.GetString("status_code_mapping"))
+			return nil, newAPIError
+		}
 	}
 
 	// 计算使用量（优先上游 UsageMetadata，缺失时本地估算并保留 Gemini 计费语义）
