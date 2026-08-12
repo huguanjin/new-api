@@ -37,7 +37,7 @@ export const Route = createFileRoute('/_authenticated/channels/')({
   beforeLoad: () => {
     const { auth } = useAuthStore.getState()
 
-    if (!auth.user || auth.user.role < ROLE.ADMIN) {
+    if (!auth.user || auth.user.role < ROLE.RESELLER) {
       throw redirect({
         to: '/403',
       })

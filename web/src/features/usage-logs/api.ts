@@ -77,6 +77,24 @@ export const getUserLogs = (
   params: Omit<GetLogsParams, 'username' | 'channel'> = {}
 ) => fetchLogs('/api/log', params, false)
 
+// getChannelOwnerLogs fetches usage logs for the channels the current user
+// (a channel reseller) personally created. The endpoint is already
+// self-scoped server-side, so it is called directly instead of through
+// fetchLogs/buildApiPath to avoid appending a redundant "/self" suffix.
+export const getChannelOwnerLogs = (
+  params: Omit<GetLogsParams, 'username' | 'channel'> = {}
+) => {
+  const paramRecord = params as unknown as Record<string, unknown>
+  const queryParams = buildQueryParams({
+    p: paramRecord.p || 1,
+    page_size: paramRecord.page_size || 20,
+    ...params,
+  })
+  return api
+    .get(`/api/log/channel-owner?${queryParams}`)
+    .then((res) => res.data as GetLogsResponse)
+}
+
 export const getLogStats = (params: GetLogStatsParams = {}) =>
   fetchLogStats('/api/log', params, true)
 

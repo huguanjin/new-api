@@ -118,6 +118,7 @@ export function useSidebarData(): SidebarData {
       {
         id: 'admin',
         title: t('Admin'),
+        minRole: ROLE.RESELLER,
         items: [
           {
             title: t('Channels'),
@@ -128,21 +129,25 @@ export function useSidebarData(): SidebarData {
             title: t('Models'),
             url: '/models/metadata',
             icon: Box,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('Users'),
             url: '/users',
             icon: Users,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('Redemption Codes'),
             url: '/redemption-codes',
             icon: Ticket,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('Subscriptions'),
             url: '/subscriptions',
             icon: CreditCard,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('System Info'),
@@ -155,6 +160,7 @@ export function useSidebarData(): SidebarData {
             url: '/system-settings/site',
             activeUrls: ['/system-settings'],
             icon: Settings,
+            requiredRole: ROLE.ADMIN,
           },
         ],
       },

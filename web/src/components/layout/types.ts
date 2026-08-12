@@ -75,6 +75,13 @@ export type NavGroup = {
   id?: string
   title: string
   items: NavItem[]
+  /**
+   * Minimum role required to see this group at all in the sidebar. When set,
+   * the group is hidden for users whose role is below this threshold (see
+   * `useSidebarView`). Item-level `requiredRole` filtering still applies on
+   * top of this within a visible group.
+   */
+  minRole?: number
 }
 
 /**

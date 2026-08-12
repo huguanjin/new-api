@@ -55,6 +55,8 @@ type Channel struct {
 
 	OtherSettings string `json:"settings" gorm:"column:settings"` // 其他设置，存储azure版本等不需要检索的信息，详见dto.ChannelOtherSettings
 
+	CreatedBy int `json:"created_by" gorm:"index"` // 创建该渠道的用户 id，用于号商角色的渠道归属过滤
+
 	// cache info
 	Keys []string `json:"-" gorm:"-"`
 }
@@ -376,7 +378,7 @@ func GetChannelsByTag(tag string, idSort bool, selectAll bool, sortOptions ...Ch
 	return channels, err
 }
 
-func SearchChannels(keyword string, group string, model string, idSort bool, sortOptions ...ChannelSortOptions) ([]*Channel, error) {
+func SearchChannels(keyword string, group string, model string, idSort bool, createdBy int, sortOptions ...ChannelSortOptions) ([]*Channel, error) {
 	var channels []*Channel
 	modelsCol := "`models`"
 
@@ -400,6 +402,9 @@ func SearchChannels(keyword string, group string, model string, idSort bool, sor
 	whereClause := "(id = ? OR name LIKE ? OR " + commonKeyCol + " = ? OR " + baseURLCol + " LIKE ?) AND " + modelsCol + " LIKE ?"
 	args := []any{common.String2Int(keyword), "%" + keyword + "%", keyword, "%" + keyword + "%", "%" + model + "%"}
 	baseQuery = ApplyChannelGroupFilter(baseQuery.Where(whereClause, args...), group)
+	if createdBy != 0 {
+		baseQuery = baseQuery.Where("created_by = ?", createdBy)
+	}
 
 	// 执行查询
 	err := order.Apply(baseQuery).Find(&channels).Error
@@ -407,6 +412,15 @@ func SearchChannels(keyword string, group string, model string, idSort bool, sor
 		return nil, err
 	}
 	return channels, nil
+}
+
+// GetChannelIdsByCreator returns the ids of channels created by the given
+// user, used to scope the channel reseller's usage-log view to channels they
+// personally added.
+func GetChannelIdsByCreator(userId int) ([]int, error) {
+	var ids []int
+	err := DB.Model(&Channel{}).Where("created_by = ?", userId).Pluck("id", &ids).Error
+	return ids, err
 }
 
 func GetChannelById(id int, selectAll bool) (*Channel, error) {

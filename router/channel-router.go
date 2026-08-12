@@ -18,7 +18,7 @@ type permissionRoute struct {
 
 func registerChannelRoutes(apiRouter *gin.RouterGroup) {
 	channelRoute := apiRouter.Group("/channel")
-	channelRoute.Use(middleware.AdminAuth())
+	channelRoute.Use(middleware.ChannelAuth())
 
 	channelRoute.POST("/:id/key",
 		middleware.RootAuth(),
@@ -26,6 +26,15 @@ func registerChannelRoutes(apiRouter *gin.RouterGroup) {
 		middleware.DisableCache(),
 		middleware.SecureVerificationRequired(),
 		controller.GetChannelKey,
+	)
+
+	channelRoute.POST("/",
+		middleware.RequireAnyPermission(authz.ChannelSensitiveWrite, authz.ChannelCreate),
+		controller.AddChannel,
+	)
+	channelRoute.PUT("/",
+		middleware.RequireAnyPermission(authz.ChannelWrite, authz.ChannelWriteOwn),
+		controller.UpdateChannel,
 	)
 
 	for _, route := range channelPermissionRoutes {
@@ -47,8 +56,6 @@ var channelPermissionRoutes = []permissionRoute{
 	{method: http.MethodGet, path: "/test/:id", permission: authz.ChannelOperate, handler: controller.TestChannel},
 	{method: http.MethodGet, path: "/update_balance", permission: authz.ChannelOperate, handler: controller.UpdateAllChannelsBalance},
 	{method: http.MethodGet, path: "/update_balance/:id", permission: authz.ChannelOperate, handler: controller.UpdateChannelBalance},
-	{method: http.MethodPost, path: "/", permission: authz.ChannelSensitiveWrite, handler: controller.AddChannel},
-	{method: http.MethodPut, path: "/", permission: authz.ChannelWrite, handler: controller.UpdateChannel},
 	{method: http.MethodPost, path: "/status/batch", permission: authz.ChannelOperate, handler: controller.BatchUpdateChannelStatus},
 	{method: http.MethodPost, path: "/:id/status", permission: authz.ChannelOperate, handler: controller.UpdateChannelStatus},
 	{method: http.MethodDelete, path: "/disabled", permission: authz.ChannelSensitiveWrite, handler: controller.DeleteDisabledChannel},

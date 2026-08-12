@@ -8,6 +8,8 @@ const (
 	ActionWrite          = "write"
 	ActionSensitiveWrite = "sensitive_write"
 	ActionSecretView     = "secret_view"
+	ActionCreate         = "create"
+	ActionWriteOwn       = "write_own"
 )
 
 var (
@@ -16,6 +18,8 @@ var (
 	ChannelWrite          = Permission{Resource: ResourceChannel, Action: ActionWrite}
 	ChannelSensitiveWrite = Permission{Resource: ResourceChannel, Action: ActionSensitiveWrite}
 	ChannelSecretView     = Permission{Resource: ResourceChannel, Action: ActionSecretView}
+	ChannelCreate         = Permission{Resource: ResourceChannel, Action: ActionCreate}
+	ChannelWriteOwn       = Permission{Resource: ResourceChannel, Action: ActionWriteOwn}
 )
 
 func init() {
@@ -27,7 +31,7 @@ func init() {
 				Action:         ActionRead,
 				LabelKey:       "Read channels",
 				DescriptionKey: "View channel lists and details without secrets.",
-				DefaultRoles:   []string{BuiltInRoleAdmin},
+				DefaultRoles:   []string{BuiltInRoleAdmin, BuiltInRoleReseller},
 			},
 			{
 				Action:         ActionOperate,
@@ -50,6 +54,18 @@ func init() {
 				Action:         ActionSecretView,
 				LabelKey:       "View channel secrets",
 				DescriptionKey: "Reserved for viewing complete channel keys after secure verification.",
+			},
+			{
+				Action:         ActionCreate,
+				LabelKey:       "Create channels",
+				DescriptionKey: "Create new channels without other channel management capabilities.",
+				DefaultRoles:   []string{BuiltInRoleReseller},
+			},
+			{
+				Action:         ActionWriteOwn,
+				LabelKey:       "Edit own channels",
+				DescriptionKey: "Edit channels created by the same user, including sensitive fields.",
+				DefaultRoles:   []string{BuiltInRoleReseller},
 			},
 		},
 	})

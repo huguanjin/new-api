@@ -65,8 +65,10 @@ func authHelper(c *gin.Context, minRole int) {
 	// 管理/root 写操作审计兜底：内聚在鉴权链路里，保证任何经过 AdminAuth/RootAuth
 	// 的写接口都会自动留痕（无需在路由上单独挂审计中间件，避免漏挂）。
 	// handler 内手动埋点者会设置 ContextKeyAuditLogged，finishAdminAudit 据此跳过。
+	// 判断依据是实际登录用户的角色，而非路由门禁的 minRole 阈值——渠道路由组门禁
+	// 低至号商角色后，管理员/root 在该组下的操作仍需正常审计。
 	var auditWriter *auditResponseWriter
-	if minRole >= common.RoleAdminUser {
+	if user.Role >= common.RoleAdminUser {
 		auditWriter = beginAdminAudit(c)
 	}
 
@@ -98,6 +100,16 @@ func UserAuth() func(c *gin.Context) {
 func AdminAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		authHelper(c, common.RoleAdminUser)
+	}
+}
+
+// ChannelAuth admits the channel reseller role in addition to admin/root, so
+// the channel router group can host reseller-scoped routes; per-route authz
+// permissions (see RequirePermission/RequireAnyPermission) still gate what
+// each role may actually do within the group.
+func ChannelAuth() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		authHelper(c, common.RoleChannelReseller)
 	}
 }
 
@@ -230,6 +242,28 @@ func RequirePermission(permission authz.Permission) func(c *gin.Context) {
 		if authz.Can(userID, role, permission) {
 			c.Next()
 			return
+		}
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": common.TranslateMessage(c, i18n.MsgAuthInsufficientPrivilege),
+		})
+		c.Abort()
+	}
+}
+
+// RequireAnyPermission admits the request if the caller holds at least one of
+// the given permissions. Used where a route must remain reachable via a
+// broad admin permission while also being reachable via a narrower
+// role-specific permission (e.g. channel reseller create/write-own).
+func RequireAnyPermission(permissions ...authz.Permission) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		role := c.GetInt("role")
+		userID := c.GetInt("id")
+		for _, permission := range permissions {
+			if authz.Can(userID, role, permission) {
+				c.Next()
+				return
+			}
 		}
 		c.JSON(http.StatusForbidden, gin.H{
 			"success": false,

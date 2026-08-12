@@ -22,7 +22,48 @@ func GetAllLogs(c *gin.Context) {
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
-	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId)
+	channelIdFilter := []int{}
+	if channel != 0 {
+		channelIdFilter = []int{channel}
+	}
+	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channelIdFilter, group, requestId, upstreamRequestId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(logs)
+	common.ApiSuccess(c, pageInfo)
+	return
+}
+
+// GetChannelOwnerLogs returns full log rows for channels the requesting user
+// personally created (used by the channel reseller role). The channel id
+// filter is derived from the authenticated user, so non-reseller callers
+// simply see an empty result instead of leaking other users' data.
+func GetChannelOwnerLogs(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	userId := c.GetInt("id")
+	logType, _ := strconv.Atoi(c.Query("type"))
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+	tokenName := c.Query("token_name")
+	modelName := c.Query("model_name")
+	group := c.Query("group")
+	requestId := c.Query("request_id")
+	upstreamRequestId := c.Query("upstream_request_id")
+	channelIds, err := model.GetChannelIdsByCreator(userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if len(channelIds) == 0 {
+		pageInfo.SetTotal(0)
+		pageInfo.SetItems([]*model.Log{})
+		common.ApiSuccess(c, pageInfo)
+		return
+	}
+	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, "", tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channelIds, group, requestId, upstreamRequestId)
 	if err != nil {
 		common.ApiError(c, err)
 		return

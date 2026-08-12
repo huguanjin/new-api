@@ -89,6 +89,13 @@ export function ChannelsPrimaryButtons() {
     ADMIN_PERMISSION_RESOURCES.CHANNEL,
     ADMIN_PERMISSION_ACTIONS.SENSITIVE_WRITE
   )
+  const canCreate =
+    canEditSensitive ||
+    hasPermission(
+      currentUser,
+      ADMIN_PERMISSION_RESOURCES.CHANNEL,
+      ADMIN_PERMISSION_ACTIONS.CREATE
+    )
 
   const handleTagModeToggle = (checked: boolean) => {
     localStorage.setItem('enable-tag-mode', String(checked))
@@ -152,19 +159,19 @@ export function ChannelsPrimaryButtons() {
           <TooltipTrigger render={<span className='inline-flex' />}>
             <Button
               onClick={() => {
-                if (!canEditSensitive) return
+                if (!canCreate) return
                 setCurrentRow(null)
                 setOpen('create-channel')
               }}
               size='sm'
-              disabled={!canEditSensitive}
+              disabled={!canCreate}
             >
               <Plus className='h-4 w-4' />
               <span className='max-sm:hidden'>{t('Create Channel')}</span>
               <span className='sm:hidden'>{t('Create')}</span>
             </Button>
           </TooltipTrigger>
-          {!canEditSensitive && (
+          {!canCreate && (
             <TooltipContent>
               {t('No permission to perform this action')}
             </TooltipContent>
