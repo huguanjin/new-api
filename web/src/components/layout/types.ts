@@ -34,6 +34,13 @@ type BaseNavItem = {
    * `useSidebarView`). Route-level guards still enforce access independently.
    */
   requiredRole?: number
+  /**
+   * Roles that should never see this item, even if they satisfy
+   * `requiredRole`. Used for roles with a narrow feature set that sits
+   * between two thresholds (e.g. a reseller role above common users but
+   * below admins, which shouldn't see general/personal items either).
+   */
+  excludedRoles?: number[]
 }
 
 /**

@@ -307,18 +307,22 @@ func SetApiRouter(router *gin.Engine) {
 			logRoute.GET("/token", middleware.TokenAuthReadOnly(), controller.GetLogByKey)
 		}
 		groupRoute := apiRouter.Group("/group")
-		groupRoute.Use(middleware.AdminAuth())
 		{
-			groupRoute.GET("/", controller.GetGroups)
+			// Resellers need the group list to fill in the "group" field when
+			// creating/editing their own channels, so this read-only route
+			// admits ChannelAuth() rather than AdminAuth().
+			groupRoute.GET("/", middleware.ChannelAuth(), controller.GetGroups)
 		}
 
 		prefillGroupRoute := apiRouter.Group("/prefill_group")
-		prefillGroupRoute.Use(middleware.AdminAuth())
 		{
-			prefillGroupRoute.GET("/", controller.GetPrefillGroups)
-			prefillGroupRoute.POST("/", controller.CreatePrefillGroup)
-			prefillGroupRoute.PUT("/", controller.UpdatePrefillGroup)
-			prefillGroupRoute.DELETE("/:id", controller.DeletePrefillGroup)
+			// Same reasoning as /group above: resellers need read access to
+			// populate the channel creation/edit form, but must not be able
+			// to manage prefill groups themselves.
+			prefillGroupRoute.GET("/", middleware.ChannelAuth(), controller.GetPrefillGroups)
+			prefillGroupRoute.POST("/", middleware.AdminAuth(), controller.CreatePrefillGroup)
+			prefillGroupRoute.PUT("/", middleware.AdminAuth(), controller.UpdatePrefillGroup)
+			prefillGroupRoute.DELETE("/:id", middleware.AdminAuth(), controller.DeletePrefillGroup)
 		}
 
 		mjRoute := apiRouter.Group("/mj")

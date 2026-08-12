@@ -59,10 +59,13 @@ export function useSidebarView(): ResolvedSidebarView {
       )
       .map((group) => {
         const items = group.items.filter(
-          (item) => item.requiredRole === undefined || role >= item.requiredRole
+          (item) =>
+            (item.requiredRole === undefined || role >= item.requiredRole) &&
+            !item.excludedRoles?.includes(role)
         )
         return items.length === group.items.length ? group : { ...group, items }
       })
+      .filter((group) => group.items.length > 0)
   }, [configFilteredRoot, userRole])
 
   const view = resolveSidebarView(pathname)

@@ -29,8 +29,16 @@ import {
   chatLinkRequiresApiKey,
   resolveChatUrl,
 } from '@/features/chat/lib/chat-links'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/_authenticated/chat/$chatId')({
+  beforeLoad: () => {
+    const { auth } = useAuthStore.getState()
+    if (auth.user?.role === ROLE.RESELLER) {
+      throw redirect({ to: '/403' })
+    }
+  },
   loader: async ({ params }) => {
     if (!Number.isInteger(Number(params.chatId))) {
       throw redirect({ to: '/dashboard' })
