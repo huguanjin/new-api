@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
 import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
+import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 export type TopNavLink = {
@@ -98,6 +99,13 @@ export function useTopNavLinks(): TopNavLink[] {
   // About
   if (modules?.about !== false) {
     links.push({ title: t('About'), href: '/about' })
+  }
+
+  // Resellers only get Channels (via Console) as a working destination, so
+  // the other top-nav links (Model Square, Rankings, Docs, About) would just
+  // be dead weight in their nav bar.
+  if (auth?.user?.role === ROLE.RESELLER) {
+    return links.filter((link) => link.href === '/' || link.href === '/dashboard')
   }
 
   return links
