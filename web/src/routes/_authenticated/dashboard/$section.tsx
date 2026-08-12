@@ -30,7 +30,11 @@ export const Route = createFileRoute('/_authenticated/dashboard/$section')({
   beforeLoad: ({ params }) => {
     const { auth } = useAuthStore.getState()
     if (auth.user?.role === ROLE.RESELLER) {
-      throw redirect({ to: '/403' })
+      // Resellers don't have a dashboard, but the header/hero "Go to
+      // Dashboard" CTA is shared by every authenticated role and always
+      // points here — send them to their actual home instead of a dead-end
+      // 403.
+      throw redirect({ to: '/channels' })
     }
     const validSections = DASHBOARD_SECTION_IDS as unknown as string[]
     if (!validSections.includes(params.section)) {
