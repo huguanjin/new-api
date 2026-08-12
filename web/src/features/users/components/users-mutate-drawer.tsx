@@ -81,7 +81,12 @@ import {
   getGroups,
   getPermissionCatalog,
 } from '../api'
-import { BINDING_FIELDS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import {
+  BINDING_FIELDS,
+  ERROR_MESSAGES,
+  SUCCESS_MESSAGES,
+  USER_ROLE,
+} from '../constants'
 import {
   userFormSchema,
   type UserFormValues,
@@ -274,8 +279,18 @@ export function UsersMutateDrawer({
                         <FormLabel>{t('Role')}</FormLabel>
                         <Select
                           items={[
-                            { value: '1', label: t('Common User') },
-                            { value: '10', label: t('Admin') },
+                            {
+                              value: String(USER_ROLE.USER),
+                              label: t('Common User'),
+                            },
+                            {
+                              value: String(USER_ROLE.RESELLER),
+                              label: t('Channel Reseller'),
+                            },
+                            {
+                              value: String(USER_ROLE.ADMIN),
+                              label: t('Admin'),
+                            },
                           ]}
                           onValueChange={(value) =>
                             value !== null && field.onChange(parseInt(value))
@@ -289,10 +304,15 @@ export function UsersMutateDrawer({
                           </FormControl>
                           <SelectContent alignItemWithTrigger={false}>
                             <SelectGroup>
-                              <SelectItem value='1'>
+                              <SelectItem value={String(USER_ROLE.USER)}>
                                 {t('Common User')}
                               </SelectItem>
-                              <SelectItem value='10'>{t('Admin')}</SelectItem>
+                              <SelectItem value={String(USER_ROLE.RESELLER)}>
+                                {t('Channel Reseller')}
+                              </SelectItem>
+                              <SelectItem value={String(USER_ROLE.ADMIN)}>
+                                {t('Admin')}
+                              </SelectItem>
                             </SelectGroup>
                           </SelectContent>
                         </Select>
