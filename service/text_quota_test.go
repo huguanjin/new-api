@@ -1061,3 +1061,111 @@ func TestAppendToolSurchargeLogInfoWritesOnlyStructuredFields(t *testing.T) {
 	assert.NotContains(t, other, "image_generation_call")
 	assert.NotContains(t, other, "image_generation_call_price")
 }
+
+func TestShouldSkipEmptyResponseBilling(t *testing.T) {
+	zeroSummary := textQuotaSummary{CompletionTokens: 0}
+	nonZeroSummary := textQuotaSummary{CompletionTokens: 5}
+
+	tests := []struct {
+		name        string
+		toggledOn   bool
+		originUsage *dto.Usage
+		summary     textQuotaSummary
+		format      types.RelayFormat
+		want        bool
+	}{
+		{
+			name:        "toggle off never skips",
+			toggledOn:   false,
+			originUsage: &dto.Usage{},
+			summary:     zeroSummary,
+			format:      types.RelayFormatOpenAI,
+			want:        false,
+		},
+		{
+			name:        "toggle on, zero completion tokens, eligible format skips",
+			toggledOn:   true,
+			originUsage: &dto.Usage{},
+			summary:     zeroSummary,
+			format:      types.RelayFormatOpenAI,
+			want:        true,
+		},
+		{
+			name:        "toggle on, claude format skips",
+			toggledOn:   true,
+			originUsage: &dto.Usage{},
+			summary:     zeroSummary,
+			format:      types.RelayFormatClaude,
+			want:        true,
+		},
+		{
+			name:        "toggle on, gemini format skips",
+			toggledOn:   true,
+			originUsage: &dto.Usage{},
+			summary:     zeroSummary,
+			format:      types.RelayFormatGemini,
+			want:        true,
+		},
+		{
+			name:        "toggle on, responses format skips",
+			toggledOn:   true,
+			originUsage: &dto.Usage{},
+			summary:     zeroSummary,
+			format:      types.RelayFormatOpenAIResponses,
+			want:        true,
+		},
+		{
+			name:        "toggle on, ineligible format (embedding) does not skip",
+			toggledOn:   true,
+			originUsage: &dto.Usage{},
+			summary:     zeroSummary,
+			format:      types.RelayFormatEmbedding,
+			want:        false,
+		},
+		{
+			name:        "toggle on, ineligible format (rerank) does not skip",
+			toggledOn:   true,
+			originUsage: &dto.Usage{},
+			summary:     zeroSummary,
+			format:      types.RelayFormatRerank,
+			want:        false,
+		},
+		{
+			name:        "toggle on, ineligible format (image) does not skip",
+			toggledOn:   true,
+			originUsage: &dto.Usage{},
+			summary:     zeroSummary,
+			format:      types.RelayFormatOpenAIImage,
+			want:        false,
+		},
+		{
+			name:        "toggle on, nonzero completion tokens does not skip",
+			toggledOn:   true,
+			originUsage: &dto.Usage{},
+			summary:     nonZeroSummary,
+			format:      types.RelayFormatOpenAI,
+			want:        false,
+		},
+		{
+			name:        "toggle on, nil origin usage does not skip",
+			toggledOn:   true,
+			originUsage: nil,
+			summary:     zeroSummary,
+			format:      types.RelayFormatOpenAI,
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			relayInfo := &relaycommon.RelayInfo{
+				FinalRequestRelayFormat: tt.format,
+				ChannelMeta: &relaycommon.ChannelMeta{
+					ChannelSetting: dto.ChannelSettings{SkipBillingOnEmptyResponse: tt.toggledOn},
+				},
+			}
+			got := shouldSkipEmptyResponseBilling(relayInfo, tt.originUsage, tt.summary)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

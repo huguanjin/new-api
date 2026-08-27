@@ -253,6 +253,7 @@ export const channelFormSchema = z
     force_format: z.boolean().optional(),
     thinking_to_content: z.boolean().optional(),
     gemini_filtered_image_as_error: z.boolean().optional(),
+    skip_billing_on_empty_response: z.boolean().optional(),
     proxy: z
       .string()
       .optional()
@@ -429,6 +430,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   force_format: false,
   thinking_to_content: false,
   gemini_filtered_image_as_error: false,
+  skip_billing_on_empty_response: false,
   proxy: '',
   http_protocol: HTTP_PROTOCOL_AUTO,
   http2_connection_shards: 1,
@@ -470,6 +472,7 @@ export function transformChannelToFormDefaults(
     force_format: false,
     thinking_to_content: false,
     gemini_filtered_image_as_error: false,
+    skip_billing_on_empty_response: false,
     proxy: '',
     http_protocol: HTTP_PROTOCOL_AUTO as 'auto' | 'http1',
     http2_connection_shards: 1,
@@ -490,6 +493,8 @@ export function transformChannelToFormDefaults(
         thinking_to_content: parsed.thinking_to_content || false,
         gemini_filtered_image_as_error:
           parsed.gemini_filtered_image_as_error || false,
+        skip_billing_on_empty_response:
+          parsed.skip_billing_on_empty_response || false,
         proxy: parsed.proxy || '',
         http_protocol: protocol,
         http2_connection_shards:
@@ -612,6 +617,8 @@ export function buildSettingJSON(formData: ChannelFormValues): string {
     thinking_to_content: formData.thinking_to_content || false,
     gemini_filtered_image_as_error:
       formData.gemini_filtered_image_as_error || false,
+    skip_billing_on_empty_response:
+      formData.skip_billing_on_empty_response || false,
     proxy: formData.proxy?.trim() || '',
     pass_through_body_enabled: formData.pass_through_body_enabled || false,
     system_prompt: formData.system_prompt || '',

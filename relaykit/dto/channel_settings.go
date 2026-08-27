@@ -21,6 +21,13 @@ type ChannelSettings struct {
 	// non-empty candidates but empty content parts (content filtered by Google's
 	// review) return an HTTP error instead of a billed empty response.
 	GeminiFilteredImageAsError bool `json:"gemini_filtered_image_as_error,omitempty"`
+	// SkipBillingOnEmptyResponse waives the entire charge for a text-generation
+	// request (chat completions, Claude Messages, Responses, Gemini
+	// generateContent) whose usage reports zero completion tokens — i.e. the
+	// model produced no output. The request is still logged with its actual
+	// token counts, just at zero quota. See isEmptyResponseSkippableRelayFormat
+	// in service/text_quota.go for the exact endpoint scope.
+	SkipBillingOnEmptyResponse bool `json:"skip_billing_on_empty_response,omitempty"`
 	// HTTPProtocol controls outbound HTTP version negotiation for this channel.
 	// Accepted values: "", "auto" (default), "http1".
 	HTTPProtocol string `json:"http_protocol,omitempty"`

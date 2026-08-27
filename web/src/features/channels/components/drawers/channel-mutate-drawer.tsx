@@ -284,6 +284,7 @@ const SENSITIVE_FORM_FIELDS = [
   'force_format',
   'thinking_to_content',
   'gemini_filtered_image_as_error',
+  'skip_billing_on_empty_response',
   'proxy',
   'http_protocol',
   'http2_connection_shards',
@@ -341,6 +342,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.force_format ||
     values.thinking_to_content ||
     values.gemini_filtered_image_as_error ||
+    values.skip_billing_on_empty_response ||
     values.pass_through_body_enabled ||
     values.system_prompt_override ||
     (values.http_protocol && values.http_protocol !== 'auto') ||
@@ -747,6 +749,9 @@ export function ChannelMutateDrawer({
   const currentHeaderOverride = form.watch('header_override')
   const currentForceFormat = form.watch('force_format')
   const currentThinkingToContent = form.watch('thinking_to_content')
+  const currentSkipBillingOnEmptyResponse = form.watch(
+    'skip_billing_on_empty_response'
+  )
   const currentPassThroughBodyEnabled = form.watch('pass_through_body_enabled')
   const currentDisableTaskPollingSleep = form.watch(
     'disable_task_polling_sleep'
@@ -1019,6 +1024,7 @@ export function ChannelMutateDrawer({
   const extraSettingsConfigured = Boolean(
     currentForceFormat ||
     currentThinkingToContent ||
+    currentSkipBillingOnEmptyResponse ||
     currentPassThroughBodyEnabled ||
     currentDisableTaskPollingSleep ||
     currentProxy?.trim() ||
@@ -4147,6 +4153,31 @@ export function ChannelMutateDrawer({
                                   )}
                                 />
                               )}
+
+                              <FormField
+                                control={form.control}
+                                name='skip_billing_on_empty_response'
+                                render={({ field }) => (
+                                  <FormItem className='flex items-center justify-between px-4 py-3'>
+                                    <div className='space-y-0.5'>
+                                      <FormLabel>
+                                        {t('Skip Billing on Empty Response')}
+                                      </FormLabel>
+                                      <FormDescription>
+                                        {t(
+                                          'Do not charge for a request when the upstream model returns no completion content (chat completions, Claude Messages, Responses, and Gemini generateContent only)'
+                                        )}
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
 
                               <FormField
                                 control={form.control}

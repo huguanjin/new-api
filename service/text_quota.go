@@ -384,6 +384,37 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	return summary
 }
 
+// isEmptyResponseSkippableRelayFormat reports whether format is a text-generation
+// endpoint where a zero-completion-token response plausibly means the model
+// returned nothing (as opposed to embeddings/rerank/image/audio endpoints, whose
+// usage has no completion-token concept and would otherwise be misclassified as
+// "empty" on every request).
+func isEmptyResponseSkippableRelayFormat(format types.RelayFormat) bool {
+	switch format {
+	case types.RelayFormatOpenAI,
+		types.RelayFormatClaude,
+		types.RelayFormatGemini,
+		types.RelayFormatOpenAIResponses,
+		types.RelayFormatOpenAIResponsesCompaction:
+		return true
+	default:
+		return false
+	}
+}
+
+// shouldSkipEmptyResponseBilling reports whether relayInfo.ChannelSetting opts
+// into waiving the charge for this request because the upstream model returned
+// a real usage object with zero completion tokens. originUsage must be the
+// unmodified usage the provider handler returned (not the estimated fallback
+// PostTextConsumeQuota synthesizes when usage is nil), so a genuine upstream
+// timeout keeps going through the existing "no billing info" path instead.
+func shouldSkipEmptyResponseBilling(relayInfo *relaycommon.RelayInfo, originUsage *dto.Usage, summary textQuotaSummary) bool {
+	return relayInfo.ChannelSetting.SkipBillingOnEmptyResponse &&
+		originUsage != nil &&
+		summary.CompletionTokens == 0 &&
+		isEmptyResponseSkippableRelayFormat(relayInfo.GetFinalRequestRelayFormat())
+}
+
 func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage) string {
 	if usage != nil && usage.UsageSemantic != "" {
 		return usage.UsageSemantic
@@ -406,6 +437,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 	adminRejectReason := common.GetContextKeyString(ctx, constant.ContextKeyAdminRejectReason)
 	summary := calculateTextQuotaSummary(ctx, relayInfo, billingUsage)
+	skipEmptyResponseBilling := shouldSkipEmptyResponseBilling(relayInfo, originUsage, summary)
 
 	var tieredResult *billingexpr.TieredResult
 	tieredBillingApplied := false
@@ -422,22 +454,27 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		}
 	}
 
-	for _, item := range summary.ToolSurchargeItems {
-		q := decimal.NewFromFloat(item.Price).
-			Mul(decimal.NewFromInt(int64(item.Count))).
-			Div(decimal.NewFromInt(1000)).
-			Mul(decimal.NewFromFloat(summary.GroupRatio)).
-			Mul(decimal.NewFromFloat(common.QuotaPerUnit))
-		extraContent = append(extraContent, fmt.Sprintf(
-			"%s 调用 %d 次，调用花费 %s",
-			item.Name,
-			item.Count,
-			logger.LogQuota(common.QuotaFromDecimal(q)),
-		))
-	}
-	if summary.AudioInputPrice > 0 && summary.AudioTokens > 0 {
-		q := decimal.NewFromFloat(summary.AudioInputPrice).Div(decimal.NewFromInt(1000000)).Mul(decimal.NewFromInt(int64(summary.AudioTokens))).Mul(decimal.NewFromFloat(summary.GroupRatio)).Mul(decimal.NewFromFloat(common.QuotaPerUnit))
-		extraContent = append(extraContent, fmt.Sprintf("Audio Input 花费 %s", logger.LogQuota(common.QuotaFromDecimal(q))))
+	if skipEmptyResponseBilling {
+		summary.Quota = 0
+		extraContent = append(extraContent, "模型空返，已根据渠道设置不计费")
+	} else {
+		for _, item := range summary.ToolSurchargeItems {
+			q := decimal.NewFromFloat(item.Price).
+				Mul(decimal.NewFromInt(int64(item.Count))).
+				Div(decimal.NewFromInt(1000)).
+				Mul(decimal.NewFromFloat(summary.GroupRatio)).
+				Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+			extraContent = append(extraContent, fmt.Sprintf(
+				"%s 调用 %d 次，调用花费 %s",
+				item.Name,
+				item.Count,
+				logger.LogQuota(common.QuotaFromDecimal(q)),
+			))
+		}
+		if summary.AudioInputPrice > 0 && summary.AudioTokens > 0 {
+			q := decimal.NewFromFloat(summary.AudioInputPrice).Div(decimal.NewFromInt(1000000)).Mul(decimal.NewFromInt(int64(summary.AudioTokens))).Mul(decimal.NewFromFloat(summary.GroupRatio)).Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+			extraContent = append(extraContent, fmt.Sprintf("Audio Input 花费 %s", logger.LogQuota(common.QuotaFromDecimal(q))))
+		}
 	}
 
 	if !summary.hasBillableUsage() {
