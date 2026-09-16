@@ -37,21 +37,66 @@ func modelVersionForResponse(info *relaycommon.RelayInfo) string {
 // The native Gemini path forwards upstream bytes verbatim, so the replacement is
 // done in place: a round trip through the response DTO would drop fields the DTO
 // does not model.
+//
+// Upstream providers serialize the same field differently — whitespace around the
+// colon, an empty value, or a nested object whose quotes arrive escaped — so the
+// value is located structurally rather than by one exact byte prefix. Only the
+// bytes between the quotes are substituted, which keeps the replacement valid
+// inside an escaped fragment too.
 func replaceJSONStringField(body []byte, key string, newValue string) []byte {
-	prefix := []byte("\"" + key + "\":\"")
-	keyAt := bytes.Index(body, prefix)
-	if keyAt < 0 {
-		return body
-	}
-	start := keyAt + len(prefix)
-	end := bytes.IndexByte(body[start:], '"')
-	if end < 0 || string(body[start:start+end]) == newValue {
+	start, end, ok := jsonStringFieldSpan(body, key)
+	if !ok || string(body[start:end]) == newValue {
 		return body
 	}
 	replaced := make([]byte, 0, len(body))
 	replaced = append(replaced, body[:start]...)
 	replaced = append(replaced, newValue...)
-	return append(replaced, body[start+end:]...)
+	return append(replaced, body[end:]...)
+}
+
+// jsonStringFieldSpan returns the byte range holding the value of key, without
+// its surrounding quotes. A fragment whose quotes arrive escaped — the whole
+// response nested inside a JSON string — is matched too, and the colon may carry
+// whitespace on either side.
+// jsonStringFieldSpan returns the byte range holding the value of key, excluding
+// its surrounding quotes. The colon may carry whitespace on either side and the
+// value may be empty, so the field is located structurally rather than by one
+// exact byte prefix.
+func jsonStringFieldSpan(body []byte, key string) (int, int, bool) {
+	skipSpace := func(i int) int {
+		for i < len(body) && (body[i] == ' ' || body[i] == '\t' || body[i] == '\n' || body[i] == '\r') {
+			i++
+		}
+		return i
+	}
+
+	keyAt := bytes.Index(body, []byte(`"`+key+`"`))
+	if keyAt < 0 {
+		return 0, 0, false
+	}
+	i := skipSpace(keyAt + len(key) + 2)
+	if i >= len(body) || body[i] != ':' {
+		return 0, 0, false
+	}
+	i = skipSpace(i + 1)
+	if i >= len(body) || body[i] != '"' {
+		return 0, 0, false
+	}
+	start := i + 1
+	for end := start; end < len(body); end++ {
+		if body[end] != '"' {
+			continue
+		}
+		backslashes := 0
+		for j := end - 1; j >= start && body[j] == '\\'; j-- {
+			backslashes++
+		}
+		if backslashes%2 == 1 {
+			continue
+		}
+		return start, end, true
+	}
+	return 0, 0, false
 }
 
 func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -154,25 +199,16 @@ func GeminiTextGenerationStreamHandler(c *gin.Context, info *relaycommon.RelayIn
 
 	loggedModelVersion := false
 	return geminiStreamHandler(c, info, resp, func(data string, geminiResponse *dto.GeminiChatResponse) bool {
-		if !loggedModelVersion && bytes.Contains([]byte(data), []byte(`"modelVersion"`)) {
-			loggedModelVersion = true
-			upstreamModelVersion := ""
-			if body := []byte(data); bytes.Contains(body, []byte(`"modelVersion"`)) {
-				prefix := []byte(`"modelVersion":"`)
-				if keyAt := bytes.Index(body, prefix); keyAt >= 0 {
-					rest := body[keyAt+len(prefix):]
-					if end := bytes.IndexByte(rest, '"'); end >= 0 {
-						upstreamModelVersion = string(rest[:end])
-					}
-				}
+		if !loggedModelVersion {
+			if start, end, ok := jsonStringFieldSpan([]byte(data), "modelVersion"); ok {
+				loggedModelVersion = true
+				logger.LogInfo(c, fmt.Sprintf("modelVersion rewrite: channel_id=%d, channel_type=%d, relay_mode=%d, is_stream=%v, switch=%v, is_model_mapped=%v, origin_model_name=%q, upstream_model_name=%q, upstream_model_version=%q",
+					info.ChannelId, info.ChannelType, info.RelayMode, info.IsStream,
+					info.ChannelSetting.GeminiModelVersionUseMappedModel, info.IsModelMapped,
+					info.OriginModelName, info.UpstreamModelName, string([]byte(data)[start:end])))
 			}
-			logger.LogInfo(c, fmt.Sprintf("modelVersion rewrite: channel_id=%d, channel_type=%d, relay_mode=%d, is_stream=%v, switch=%v, is_model_mapped=%v, origin_model_name=%q, upstream_model_name=%q, upstream_model_version=%q",
-				info.ChannelId, info.ChannelType, info.RelayMode, info.IsStream,
-				info.ChannelSetting.GeminiModelVersionUseMappedModel, info.IsModelMapped,
-				info.OriginModelName, info.UpstreamModelName, upstreamModelVersion))
 		}
-		if info.ChannelSetting.GeminiModelVersionUseMappedModel &&
-			bytes.Contains([]byte(data), []byte(`"modelVersion"`)) {
+		if info.ChannelSetting.GeminiModelVersionUseMappedModel {
 			data = string(replaceJSONStringField([]byte(data), "modelVersion", modelVersionForResponse(info)))
 		}
 		err := helper.StringData(c, data)
