@@ -152,7 +152,25 @@ func NativeGeminiEmbeddingHandler(c *gin.Context, resp *http.Response, info *rel
 func GeminiTextGenerationStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	helper.SetEventStreamHeaders(c)
 
+	loggedModelVersion := false
 	return geminiStreamHandler(c, info, resp, func(data string, geminiResponse *dto.GeminiChatResponse) bool {
+		if !loggedModelVersion && bytes.Contains([]byte(data), []byte(`"modelVersion"`)) {
+			loggedModelVersion = true
+			upstreamModelVersion := ""
+			if body := []byte(data); bytes.Contains(body, []byte(`"modelVersion"`)) {
+				prefix := []byte(`"modelVersion":"`)
+				if keyAt := bytes.Index(body, prefix); keyAt >= 0 {
+					rest := body[keyAt+len(prefix):]
+					if end := bytes.IndexByte(rest, '"'); end >= 0 {
+						upstreamModelVersion = string(rest[:end])
+					}
+				}
+			}
+			logger.LogInfo(c, fmt.Sprintf("modelVersion rewrite: channel_id=%d, channel_type=%d, relay_mode=%d, is_stream=%v, switch=%v, is_model_mapped=%v, origin_model_name=%q, upstream_model_name=%q, upstream_model_version=%q",
+				info.ChannelId, info.ChannelType, info.RelayMode, info.IsStream,
+				info.ChannelSetting.GeminiModelVersionUseMappedModel, info.IsModelMapped,
+				info.OriginModelName, info.UpstreamModelName, upstreamModelVersion))
+		}
 		if info.ChannelSetting.GeminiModelVersionUseMappedModel &&
 			bytes.Contains([]byte(data), []byte(`"modelVersion"`)) {
 			data = string(replaceJSONStringField([]byte(data), "modelVersion", modelVersionForResponse(info)))
