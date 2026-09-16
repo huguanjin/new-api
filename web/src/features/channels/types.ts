@@ -89,6 +89,7 @@ export interface ChannelSettings {
   http_protocol?: 'auto' | 'http1' | string
   http2_connection_shards?: number
   skip_billing_on_empty_response?: boolean
+  gemini_model_version_use_mapped_model?: boolean
 }
 
 export interface ChannelOtherSettings {

@@ -28,6 +28,12 @@ type ChannelSettings struct {
 	// token counts, just at zero quota. See isEmptyResponseSkippableRelayFormat
 	// in service/text_quota.go for the exact endpoint scope.
 	SkipBillingOnEmptyResponse bool `json:"skip_billing_on_empty_response,omitempty"`
+	// GeminiModelVersionUseMappedModel replaces the modelVersion field of a native
+	// Gemini response (generateContent and streamGenerateContent) with the mapped
+	// upstream model name. Upstream echoes the name it was called with, so without
+	// this the client keeps seeing the model it requested even when the channel maps
+	// it to a different one.
+	GeminiModelVersionUseMappedModel bool `json:"gemini_model_version_use_mapped_model,omitempty"`
 	// HTTPProtocol controls outbound HTTP version negotiation for this channel.
 	// Accepted values: "", "auto" (default), "http1".
 	HTTPProtocol string `json:"http_protocol,omitempty"`

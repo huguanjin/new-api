@@ -39,6 +39,8 @@ const ADVANCED_SETTINGS_FIELDS = new Set<FieldPath<ChannelFormValues>>([
   'thinking_to_content',
   'pass_through_body_enabled',
   'skip_billing_on_empty_response',
+  'gemini_filtered_image_as_error',
+  'gemini_model_version_use_mapped_model',
   'proxy',
   'http_protocol',
   'http2_connection_shards',

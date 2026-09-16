@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,30 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// replaceJSONStringField rewrites a string field of a flat JSON object, leaving
+// every other byte untouched. It returns body unchanged when the field is absent
+// or already holds newValue.
+//
+// The native Gemini path forwards upstream bytes verbatim, so the replacement is
+// done in place: a round trip through the response DTO would drop fields the DTO
+// does not model.
+func replaceJSONStringField(body []byte, key string, newValue string) []byte {
+	prefix := []byte("\"" + key + "\":\"")
+	keyAt := bytes.Index(body, prefix)
+	if keyAt < 0 {
+		return body
+	}
+	start := keyAt + len(prefix)
+	end := bytes.IndexByte(body[start:], '"')
+	if end < 0 || string(body[start:start+end]) == newValue {
+		return body
+	}
+	replaced := make([]byte, 0, len(body))
+	replaced = append(replaced, body[:start]...)
+	replaced = append(replaced, newValue...)
+	return append(replaced, body[start+end:]...)
+}
 
 func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
@@ -73,6 +98,11 @@ func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 	// 计算使用量（优先上游 UsageMetadata，缺失时本地估算并保留 Gemini 计费语义）
 	usage := buildUsageFromGeminiResponse(c, info, &geminiResponse)
 
+	if info.ChannelSetting.GeminiModelVersionUseMappedModel &&
+		bytes.Contains(responseBody, []byte(`"modelVersion"`)) {
+		responseBody = replaceJSONStringField(responseBody, "modelVersion", info.UpstreamModelName)
+	}
+
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
 	return &usage, nil
@@ -113,6 +143,10 @@ func GeminiTextGenerationStreamHandler(c *gin.Context, info *relaycommon.RelayIn
 	helper.SetEventStreamHeaders(c)
 
 	return geminiStreamHandler(c, info, resp, func(data string, geminiResponse *dto.GeminiChatResponse) bool {
+		if info.ChannelSetting.GeminiModelVersionUseMappedModel &&
+			bytes.Contains([]byte(data), []byte(`"modelVersion"`)) {
+			data = string(replaceJSONStringField([]byte(data), "modelVersion", info.UpstreamModelName))
+		}
 		err := helper.StringData(c, data)
 		if err != nil {
 			logger.LogError(c, "failed to write stream data: "+err.Error())

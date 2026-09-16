@@ -4971,6 +4971,8 @@
     "Use presets or upstream discovery to populate the model list faster.": "Utilisez des préréglages ou la découverte en amont pour remplir plus vite la liste des modèles.",
     "Use secure connection when sending emails": "Utiliser une connexion sécurisée lors de l'envoi d'e-mails",
     "Use sidebar shortcut": "Utiliser le raccourci de la barre latérale",
+    "Use Mapped Model Name in modelVersion": "Renvoyer le nom du modèle mappé dans modelVersion",
+    "Return the mapped upstream model name in the modelVersion field of native Gemini responses (Gemini and Vertex AI channels only)": "Renvoyer le nom du modèle amont mappé dans le champ modelVersion des réponses Gemini natives (canaux Gemini et Vertex AI uniquement)",
     "Use the full-width table to scan prices, then select a row to edit it here.": "Parcourez les prix dans le tableau, puis sélectionnez une ligne pour la modifier ici.",
     "Use the group set on the token. If the token has no group, use the user group. The auto group tries the auto assignment order from top to bottom.": "Utilisez le groupe défini sur le jeton. S’il n’en a pas, utilisez le groupe de l’utilisateur. Le groupe auto essaie l’ordre d’affectation automatique de haut en bas.",
     "Use the pricing group table to manage the ratio and whether the group appears in the token creation dropdown.": "Utilisez le tableau des groupes tarifaires pour gérer le ratio et l’apparition du groupe dans la liste de création de jeton.",

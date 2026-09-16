@@ -284,6 +284,7 @@ const SENSITIVE_FORM_FIELDS = [
   'force_format',
   'thinking_to_content',
   'gemini_filtered_image_as_error',
+  'gemini_model_version_use_mapped_model',
   'skip_billing_on_empty_response',
   'proxy',
   'http_protocol',
@@ -342,6 +343,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.force_format ||
     values.thinking_to_content ||
     values.gemini_filtered_image_as_error ||
+    values.gemini_model_version_use_mapped_model ||
     values.skip_billing_on_empty_response ||
     values.pass_through_body_enabled ||
     values.system_prompt_override ||
@@ -4140,6 +4142,35 @@ export function ChannelMutateDrawer({
                                         <FormDescription>
                                           {t(
                                             'Return an error and skip billing when Gemini blocks image generation output (Gemini channel only)'
+                                          )}
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+
+                              {(currentType === 24 || currentType === 41) && (
+                                <FormField
+                                  control={form.control}
+                                  name='gemini_model_version_use_mapped_model'
+                                  render={({ field }) => (
+                                    <FormItem className='flex items-center justify-between px-4 py-3'>
+                                      <div className='space-y-0.5'>
+                                        <FormLabel>
+                                          {t(
+                                            'Use Mapped Model Name in modelVersion'
+                                          )}
+                                        </FormLabel>
+                                        <FormDescription>
+                                          {t(
+                                            'Return the mapped upstream model name in the modelVersion field of native Gemini responses (Gemini and Vertex AI channels only)'
                                           )}
                                         </FormDescription>
                                       </div>

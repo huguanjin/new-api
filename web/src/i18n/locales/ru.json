@@ -4971,6 +4971,8 @@
     "Use presets or upstream discovery to populate the model list faster.": "Используйте пресеты или обнаружение upstream, чтобы быстрее заполнить список моделей.",
     "Use secure connection when sending emails": "Использовать безопасное соединение при отправке электронных писем",
     "Use sidebar shortcut": "Использовать ярлык боковой панели",
+    "Use Mapped Model Name in modelVersion": "Возвращать сопоставленное имя модели в modelVersion",
+    "Return the mapped upstream model name in the modelVersion field of native Gemini responses (Gemini and Vertex AI channels only)": "Возвращать сопоставленное имя вышестоящей модели в поле modelVersion нативных ответов Gemini (только каналы Gemini и Vertex AI)",
     "Use the full-width table to scan prices, then select a row to edit it here.": "Просмотрите цены в таблице, затем выберите строку для редактирования здесь.",
     "Use the group set on the token. If the token has no group, use the user group. The auto group tries the auto assignment order from top to bottom.": "Используется группа токена. Если у токена нет группы — группа пользователя. Группа auto перебирает порядок автоназначения сверху вниз.",
     "Use the pricing group table to manage the ratio and whether the group appears in the token creation dropdown.": "Используйте таблицу групп тарификации, чтобы управлять коэффициентом и отображением группы в списке создания токена.",

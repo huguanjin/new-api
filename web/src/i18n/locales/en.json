@@ -4972,6 +4972,8 @@
     "Use presets or upstream discovery to populate the model list faster.": "Use presets or upstream discovery to populate the model list faster.",
     "Use secure connection when sending emails": "Use secure connection when sending emails",
     "Use sidebar shortcut": "Use sidebar shortcut",
+    "Use Mapped Model Name in modelVersion": "Use Mapped Model Name in modelVersion",
+    "Return the mapped upstream model name in the modelVersion field of native Gemini responses (Gemini and Vertex AI channels only)": "Return the mapped upstream model name in the modelVersion field of native Gemini responses (Gemini and Vertex AI channels only)",
     "Use the full-width table to scan prices, then select a row to edit it here.": "Use the full-width table to scan prices, then select a row to edit it here.",
     "Use the group set on the token. If the token has no group, use the user group. The auto group tries the auto assignment order from top to bottom.": "Use the group set on the token. If the token has no group, use the user group. The auto group tries the auto assignment order from top to bottom.",
     "Use the pricing group table to manage the ratio and whether the group appears in the token creation dropdown.": "Use the pricing group table to manage the ratio and whether the group appears in the token creation dropdown.",

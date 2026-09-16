@@ -4972,6 +4972,8 @@
     "Use presets or upstream discovery to populate the model list faster.": "使用预设或上游发现来更快填充模型列表。",
     "Use secure connection when sending emails": "发送电子邮件时使用安全连接",
     "Use sidebar shortcut": "使用侧边栏快捷方式",
+    "Use Mapped Model Name in modelVersion": "模型版本返回映射后的模型名",
+    "Return the mapped upstream model name in the modelVersion field of native Gemini responses (Gemini and Vertex AI channels only)": "原生 Gemini 响应的 modelVersion 字段返回映射后的上游模型名称（仅 Gemini 与 Vertex AI 渠道）",
     "Use the full-width table to scan prices, then select a row to edit it here.": "先在表格中快速浏览价格，然后选择一行在这里编辑。",
     "Use the group set on the token. If the token has no group, use the user group. The auto group tries the auto assignment order from top to bottom.": "使用令牌上设置的分组；令牌未设置分组时，使用用户分组。auto 分组会按自动分组顺序从上到下尝试。",
     "Use the pricing group table to manage the ratio and whether the group appears in the token creation dropdown.": "使用定价分组表管理倍率，以及该分组是否出现在创建令牌的下拉框中。",
