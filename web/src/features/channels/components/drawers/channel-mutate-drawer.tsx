@@ -4165,12 +4165,12 @@ export function ChannelMutateDrawer({
                                       <div className='space-y-0.5'>
                                         <FormLabel>
                                           {t(
-                                            'Use Mapped Model Name in modelVersion'
+                                            'Return the requested model name in modelVersion'
                                           )}
                                         </FormLabel>
                                         <FormDescription>
                                           {t(
-                                            'Return the mapped upstream model name in the modelVersion field of native Gemini responses (Gemini and Vertex AI channels only)'
+                                            'Return the model name the client requested in the modelVersion field of native Gemini responses, instead of the upstream model name the channel maps it to (Gemini and Vertex AI channels only)'
                                           )}
                                         </FormDescription>
                                       </div>

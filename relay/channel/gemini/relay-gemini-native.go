@@ -20,6 +20,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// modelVersionForResponse is the model name a client should see in the
+// modelVersion field of a native Gemini response: the model it requested, not
+// the upstream name the channel mapped it to.
+func modelVersionForResponse(info *relaycommon.RelayInfo) string {
+	if info.OriginModelName != "" {
+		return info.OriginModelName
+	}
+	return info.UpstreamModelName
+}
+
 // replaceJSONStringField rewrites a string field of a flat JSON object, leaving
 // every other byte untouched. It returns body unchanged when the field is absent
 // or already holds newValue.
@@ -100,7 +110,7 @@ func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 
 	if info.ChannelSetting.GeminiModelVersionUseMappedModel &&
 		bytes.Contains(responseBody, []byte(`"modelVersion"`)) {
-		responseBody = replaceJSONStringField(responseBody, "modelVersion", info.UpstreamModelName)
+		responseBody = replaceJSONStringField(responseBody, "modelVersion", modelVersionForResponse(info))
 	}
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
@@ -145,7 +155,7 @@ func GeminiTextGenerationStreamHandler(c *gin.Context, info *relaycommon.RelayIn
 	return geminiStreamHandler(c, info, resp, func(data string, geminiResponse *dto.GeminiChatResponse) bool {
 		if info.ChannelSetting.GeminiModelVersionUseMappedModel &&
 			bytes.Contains([]byte(data), []byte(`"modelVersion"`)) {
-			data = string(replaceJSONStringField([]byte(data), "modelVersion", info.UpstreamModelName))
+			data = string(replaceJSONStringField([]byte(data), "modelVersion", modelVersionForResponse(info)))
 		}
 		err := helper.StringData(c, data)
 		if err != nil {
