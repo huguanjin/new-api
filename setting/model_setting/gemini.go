@@ -27,6 +27,12 @@ type GeminiSettings struct {
 	ThinkingAdapterBudgetTokensPercentage float64           `json:"thinking_adapter_budget_tokens_percentage"`
 	FunctionCallThoughtSignatureEnabled   bool              `json:"function_call_thought_signature_enabled"`
 	RemoveFunctionResponseIdEnabled       bool              `json:"remove_function_response_id_enabled"`
+	// ModelVersionUseRequestedModelEnabled makes the modelVersion field of a native
+	// Gemini response (generateContent and streamGenerateContent) echo the model the
+	// client requested instead of the upstream model name the channel maps it to.
+	// Applies to every Gemini and Vertex AI channel; upstream echoes whatever name
+	// it was called with, so without this the client keeps seeing the mapped name.
+	ModelVersionUseRequestedModelEnabled bool `json:"model_version_use_requested_model_enabled"`
 }
 
 // 默认配置
@@ -51,6 +57,7 @@ var defaultGeminiSettings = GeminiSettings{
 	ThinkingAdapterBudgetTokensPercentage: 0.6,
 	FunctionCallThoughtSignatureEnabled:   true,
 	RemoveFunctionResponseIdEnabled:       true,
+	ModelVersionUseRequestedModelEnabled:  false,
 }
 
 // 全局实例
@@ -114,4 +121,10 @@ func IsGeminiModelSupportImagine(model string) bool {
 		}
 	}
 	return false
+}
+
+// IsGeminiModelVersionUseRequestedModel 判断原生 Gemini 响应的 modelVersion 字段
+// 是否返回客户端请求的模型名，而不是渠道映射后的上游模型名。
+func IsGeminiModelVersionUseRequestedModel() bool {
+	return geminiSettings.ModelVersionUseRequestedModelEnabled
 }

@@ -153,7 +153,7 @@ func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 	// 计算使用量（优先上游 UsageMetadata，缺失时本地估算并保留 Gemini 计费语义）
 	usage := buildUsageFromGeminiResponse(c, info, &geminiResponse)
 
-	if info.ChannelSetting.GeminiModelVersionUseMappedModel &&
+	if model_setting.IsGeminiModelVersionUseRequestedModel() &&
 		bytes.Contains(responseBody, []byte(`"modelVersion"`)) {
 		responseBody = replaceJSONStringField(responseBody, "modelVersion", modelVersionForResponse(info))
 	}
@@ -204,11 +204,11 @@ func GeminiTextGenerationStreamHandler(c *gin.Context, info *relaycommon.RelayIn
 				loggedModelVersion = true
 				logger.LogInfo(c, fmt.Sprintf("modelVersion rewrite: channel_id=%d, channel_type=%d, relay_mode=%d, is_stream=%v, switch=%v, is_model_mapped=%v, origin_model_name=%q, upstream_model_name=%q, upstream_model_version=%q",
 					info.ChannelId, info.ChannelType, info.RelayMode, info.IsStream,
-					info.ChannelSetting.GeminiModelVersionUseMappedModel, info.IsModelMapped,
+					model_setting.IsGeminiModelVersionUseRequestedModel(), info.IsModelMapped,
 					info.OriginModelName, info.UpstreamModelName, string([]byte(data)[start:end])))
 			}
 		}
-		if info.ChannelSetting.GeminiModelVersionUseMappedModel {
+		if model_setting.IsGeminiModelVersionUseRequestedModel() {
 			data = string(replaceJSONStringField([]byte(data), "modelVersion", modelVersionForResponse(info)))
 		}
 		err := helper.StringData(c, data)

@@ -68,6 +68,9 @@ func GetChannelOwnerLogs(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	// A reseller is not an admin: the rows go through the same admin-only field
+	// stripping as the self-scoped views.
+	model.FormatChannelOwnerLogs(logs)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)

@@ -3,6 +3,8 @@ package model_setting
 import (
 	"testing"
 
+	"github.com/QuantumNous/new-api/setting/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,4 +98,32 @@ func TestValidateGeminiSafetySettings(t *testing.T) {
 	for _, value := range invalid {
 		assert.Error(t, ValidateGeminiSafetySettings(value), value)
 	}
+}
+
+// TestGeminiModelVersionRoundTrip pins the persisted option key of the global
+// modelVersion switch. The key is a contract with the admin UI, which writes and
+// reads the literal "gemini.model_version_use_requested_model_enabled": neither
+// the Go build nor the frontend typecheck can detect a renamed json tag, and a
+// mismatch would silently leave the switch unreadable at relay time.
+func TestGeminiModelVersionRoundTrip(t *testing.T) {
+	const optionKey = "gemini.model_version_use_requested_model_enabled"
+
+	settings := &GeminiSettings{}
+	manager := config.NewConfigManager()
+	manager.Register("gemini", settings)
+
+	settings.ModelVersionUseRequestedModelEnabled = true
+	saved := make(map[string]string)
+	require.NoError(t, manager.SaveToDB(func(key, value string) error {
+		saved[key] = value
+		return nil
+	}))
+	require.Equal(t, "true", saved[optionKey])
+
+	// A fresh module reading the persisted map gets the switch back.
+	reloaded := &GeminiSettings{}
+	reloadManager := config.NewConfigManager()
+	reloadManager.Register("gemini", reloaded)
+	require.NoError(t, reloadManager.LoadFromDB(saved))
+	assert.True(t, reloaded.ModelVersionUseRequestedModelEnabled)
 }

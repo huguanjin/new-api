@@ -113,22 +113,43 @@ func assignDisplayLogIds(logs []*Log, startIdx int) {
 	}
 }
 
+// stripNonAdminLogFields removes admin-only fields from one log row and blanks
+// its internal channel name. Shared by every view a non-admin can reach: the
+// self-scoped log views and the channel-owner (reseller) view.
+func stripNonAdminLogFields(log *Log) {
+	log.ChannelName = ""
+	var otherMap map[string]interface{}
+	otherMap, _ = common.StrToMap(log.Other)
+	if otherMap != nil {
+		// Remove admin-only debug fields.
+		delete(otherMap, "admin_info")
+		// Remove operation-audit details (operator/route info), admin-only.
+		delete(otherMap, "audit_info")
+		// Remove model-mapping details (the upstream model a channel redirects
+		// to), admin-only. The log's own model_name is the requested model, so a
+		// non-admin sees a consistent name with no mapping hint.
+		delete(otherMap, "is_model_mapped")
+		delete(otherMap, "upstream_model_name")
+		// delete(otherMap, "reject_reason")
+		// delete(otherMap, "stream_status")
+	}
+	log.Other = common.MapToJsonStr(otherMap)
+}
+
 func formatUserLogs(logs []*Log, startIdx int) {
 	for i := range logs {
-		logs[i].ChannelName = ""
-		var otherMap map[string]interface{}
-		otherMap, _ = common.StrToMap(logs[i].Other)
-		if otherMap != nil {
-			// Remove admin-only debug fields.
-			delete(otherMap, "admin_info")
-			// Remove operation-audit details (operator/route info), admin-only.
-			delete(otherMap, "audit_info")
-			// delete(otherMap, "reject_reason")
-			// delete(otherMap, "stream_status")
-		}
-		logs[i].Other = common.MapToJsonStr(otherMap)
+		stripNonAdminLogFields(logs[i])
 	}
 	assignDisplayLogIds(logs, startIdx)
+}
+
+// FormatChannelOwnerLogs strips admin-only fields from log rows returned to a
+// channel reseller through the channel-owner view. Resellers are not admins, so
+// they must not see model-mapping details or other admin-only fields.
+func FormatChannelOwnerLogs(logs []*Log) {
+	for i := range logs {
+		stripNonAdminLogFields(logs[i])
+	}
 }
 
 func GetLogByTokenId(tokenId int) (logs []*Log, err error) {

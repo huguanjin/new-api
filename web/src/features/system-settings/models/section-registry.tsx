@@ -108,6 +108,8 @@ const MODELS_SECTIONS = [
               settings['gemini.function_call_thought_signature_enabled'],
             remove_function_response_id_enabled:
               settings['gemini.remove_function_response_id_enabled'],
+            model_version_use_requested_model_enabled:
+              settings['gemini.model_version_use_requested_model_enabled'],
           },
         }}
       />

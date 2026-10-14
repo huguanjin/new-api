@@ -60,6 +60,9 @@ func GetUserTask(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+// tasksToDto converts task rows for listing. fillUser also marks the admin view
+// (GetAllTask), which is the only caller serving rows across users, so it is the
+// signal for whether admin-only model-mapping details are included.
 func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 	var userIdMap map[int]*model.UserBase
 	if fillUser {
@@ -82,7 +85,7 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 				task.Username = user.Username
 			}
 		}
-		result[i] = relay.TaskModel2Dto(task)
+		result[i] = relay.TaskModel2Dto(task, fillUser)
 	}
 	return result
 }

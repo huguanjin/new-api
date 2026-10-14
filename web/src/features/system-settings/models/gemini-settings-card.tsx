@@ -92,6 +92,7 @@ const schema = z.object({
       .max(1, { message: 'Must be 1 or less' }),
     function_call_thought_signature_enabled: z.boolean(),
     remove_function_response_id_enabled: z.boolean(),
+    model_version_use_requested_model_enabled: z.boolean(),
   }),
 })
 
@@ -106,6 +107,7 @@ type FlatGeminiSettings = {
   'gemini.thinking_adapter_budget_tokens_percentage': number
   'gemini.function_call_thought_signature_enabled': boolean
   'gemini.remove_function_response_id_enabled': boolean
+  'gemini.model_version_use_requested_model_enabled': boolean
 }
 
 type GeminiSettingsCardProps = {
@@ -134,6 +136,8 @@ export function GeminiSettingsCard({ defaultValues }: GeminiSettingsCardProps) {
       defaultValues.gemini.function_call_thought_signature_enabled ?? true,
     'gemini.remove_function_response_id_enabled':
       defaultValues.gemini.remove_function_response_id_enabled ?? true,
+    'gemini.model_version_use_requested_model_enabled':
+      defaultValues.gemini.model_version_use_requested_model_enabled ?? false,
   })
 
   const buildFormDefaults = (
@@ -152,6 +156,8 @@ export function GeminiSettingsCard({ defaultValues }: GeminiSettingsCardProps) {
         values.gemini.function_call_thought_signature_enabled ?? true,
       remove_function_response_id_enabled:
         values.gemini.remove_function_response_id_enabled ?? true,
+      model_version_use_requested_model_enabled:
+        values.gemini.model_version_use_requested_model_enabled ?? false,
     },
   })
 
@@ -184,6 +190,8 @@ export function GeminiSettingsCard({ defaultValues }: GeminiSettingsCardProps) {
         defaultValues.gemini.function_call_thought_signature_enabled ?? true,
       'gemini.remove_function_response_id_enabled':
         defaultValues.gemini.remove_function_response_id_enabled ?? true,
+      'gemini.model_version_use_requested_model_enabled':
+        defaultValues.gemini.model_version_use_requested_model_enabled ?? false,
     }
 
     form.reset(buildFormDefaults(defaultValues))
@@ -209,6 +217,8 @@ export function GeminiSettingsCard({ defaultValues }: GeminiSettingsCardProps) {
         values.gemini.function_call_thought_signature_enabled,
       'gemini.remove_function_response_id_enabled':
         values.gemini.remove_function_response_id_enabled,
+      'gemini.model_version_use_requested_model_enabled':
+        values.gemini.model_version_use_requested_model_enabled,
     }
 
     const updates = (
@@ -420,6 +430,30 @@ export function GeminiSettingsCard({ defaultValues }: GeminiSettingsCardProps) {
                   <FormDescription>
                     {t(
                       'Vertex AI does not support functionResponse.id. Enable this to remove the field automatically.'
+                    )}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='gemini.model_version_use_requested_model_enabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>
+                    {t('Return the requested model name in modelVersion')}
+                  </FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Return the model name the client requested in the modelVersion field of native Gemini responses, instead of the upstream model name the channel maps it to (Gemini and Vertex AI channels only)'
                     )}
                   </FormDescription>
                 </SettingsSwitchContent>

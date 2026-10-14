@@ -299,6 +299,7 @@ export function ModelMutateDrawer({
       'gemini.thinking_adapter_budget_tokens_percentage': 0.6,
       'gemini.function_call_thought_signature_enabled': false,
       'gemini.remove_function_response_id_enabled': true,
+      'gemini.model_version_use_requested_model_enabled': false,
       'claude.model_headers_settings': '',
       'claude.default_max_tokens': '',
       'claude.thinking_adapter_enabled': true,
